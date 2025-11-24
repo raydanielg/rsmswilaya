@@ -20,5 +20,9 @@
 /storage/pail
 /vendor
 Homestead.json
+
+# Local mobile workspace (Flutter) – keep out of repo
+/mobile/
+/apps/rsms_mobile/
 Homestead.yaml
 Thumbs.db

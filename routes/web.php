@@ -8,6 +8,16 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 
+// Global OPTIONS handler to avoid 405 on CORS preflight
+Route::options('/{any}', function () {
+    return response('', 204)->withHeaders([
+        'Access-Control-Allow-Origin' => '*',
+        'Access-Control-Allow-Methods' => 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+        'Access-Control-Allow-Headers' => 'Content-Type, Authorization, X-Requested-With',
+        'Access-Control-Max-Age' => '86400',
+    ]);
+})->where('any', '.*');
+
 // Redirect legacy/relative links ending with /results/<file>.pdf to /storage/results/<file>.pdf
 Route::get('{any}', function (Request $request, string $any) {
     if (preg_match('#/results/([^/]+\.pdf)$#i', '/'.$any, $m)) {

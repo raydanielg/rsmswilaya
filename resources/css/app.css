@@ -1,3 +1,7 @@
+/* FullCalendar styles (CDN fallback to avoid exports issues in Vite) */
+@import url("https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.19/index.global.min.css");
+@import url("https://cdn.jsdelivr.net/npm/@fullcalendar/daygrid@6.1.19/index.global.min.css");
+
 @import 'tailwindcss';
 
 /* Tailwind CSS v4 @source directives - these are valid for Tailwind v4 */
@@ -23,7 +27,3 @@
     --color-primary-900: #1e3a8a;
     --color-primary-950: #172554;
 }
-
-/* FullCalendar styles (CDN fallback to avoid exports issues in Vite) */
-@import url("https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.19/index.global.min.css");
-@import url("https://cdn.jsdelivr.net/npm/@fullcalendar/daygrid@6.1.19/index.global.min.css");
