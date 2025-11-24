@@ -2,7 +2,7 @@
   <header class="w-full bg-[#0B6B3A] text-white relative z-50">
     <div class="w-full grid grid-cols-3 items-center px-4 md:px-8 py-3">
       <div class="flex items-center">
-        <img src="/emblem.png" alt="Left Logo" class="h-10 w-auto" />
+        <img src="/assets/images/emblem.png" alt="Left Logo" class="h-10 w-auto" />
       </div>
       <div class="flex items-center justify-center">
         <h1 class="text-sm sm:text-base font-semibold tracking-wide text-[#E6FF8A] uppercase text-center">
@@ -10,7 +10,7 @@
         </h1>
       </div>
       <div class="flex items-center justify-end">
-        <img src="/logo%20(1).png" alt="Right Logo" class="h-10 w-auto" />
+        <img src="/assets/images/RSMS%20(1).png" alt="Right Logo" class="h-10 w-auto" />
       </div>
     </div>
     <nav class="bg-[#0A5F34]">
