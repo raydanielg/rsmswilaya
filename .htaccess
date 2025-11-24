@@ -1,0 +1,25 @@
+# Laravel root .htaccess
+# Purpose: If your web server points to the repository root (not public/),
+# this file ensures static assets (build/, storage/, etc.) and all requests
+# are correctly routed into the public/ directory so CSS/JS load properly.
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Allow ACME challenges or other well-known paths to pass through
+    RewriteRule ^\.well-known/ - [L]
+
+    # Redirect common public assets to the public/ directory
+    RewriteCond %{REQUEST_URI} ^/(build|storage|assets|css|js|images|img|fonts|favicon\.ico|robots\.txt) [NC]
+    RewriteRule ^(.*)$ public/$1 [L]
+
+    # If the request already targets /public, do nothing
+    RewriteCond %{REQUEST_URI} ^/public/ [NC]
+    RewriteRule ^ - [L]
+
+    # Otherwise, send everything to the Laravel front controller in public/
+    RewriteRule ^ public/index.php [L]
+</IfModule>
+
+# Prevent directory listings
+Options -Indexes
