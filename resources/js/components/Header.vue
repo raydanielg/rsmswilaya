@@ -10,7 +10,7 @@
         </h1>
       </div>
       <div class="flex items-center justify-end">
-        <img src="/assets/images/RSMS%20(1).png" alt="Right Logo" class="h-10 w-auto" />
+        <img src="/assets/images/logo%20(1).png" alt="Right Logo" class="h-10 w-auto" />
       </div>
     </div>
     <nav class="bg-[#0A5F34]">
