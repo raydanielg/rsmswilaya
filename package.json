@@ -26,6 +26,6 @@
         "@fullcalendar/vue3": "^6.1.19",
         "jspdf": "^3.0.4",
         "pdf-lib": "^1.17.1",
-        "pdfjs-dist": "^3.11.174"
+        "pdfjs-dist": "^4.2.67"
     }
 }
