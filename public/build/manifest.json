@@ -1,0 +1,22 @@
+{
+  "resources/css/app.css": {
+    "file": "assets/app-BGyEZGcr.css",
+    "src": "resources/css/app.css",
+    "isEntry": true
+  },
+  "resources/js/app.js": {
+    "file": "assets/app-C2sRuHbC.js",
+    "name": "app",
+    "src": "resources/js/app.js",
+    "isEntry": true,
+    "css": [
+      "assets/app-CMSfU3BQ.css"
+    ]
+  },
+  "resources/js/pdf-download.js": {
+    "file": "assets/pdf-download-CebbrSLM.js",
+    "name": "pdf-download",
+    "src": "resources/js/pdf-download.js",
+    "isEntry": true
+  }
+}

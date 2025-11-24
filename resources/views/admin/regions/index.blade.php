@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="csrf-token" content="{{ csrf_token() }}" />
+    <meta name="admin-name" content="{{ session('admin_name') }}" />
+    <title>Regions • RSMS</title>
+    @vite(['resources/css/app.css','resources/js/app.js'])
+  </head>
+  <body class="bg-[#F7F7F6] text-[#1b1b18] min-h-screen w-full">
+    <div id="app" class="w-full min-h-screen flex flex-col">
+      <admin-header @toggle-sidebar="sidebarOpen = !sidebarOpen"></admin-header>
+      <div class="flex flex-1 min-h-0">
+        <admin-sidebar :open="sidebarOpen" active="regions"></admin-sidebar>
+        <main class="flex-1 min-w-0 p-6 md:p-8">
+          <admin-regions />
+        </main>
+      </div>
+      <admin-footer></admin-footer>
+    </div>
+    <script>window.sidebarOpen = true</script>
+  </body>
+</html>
