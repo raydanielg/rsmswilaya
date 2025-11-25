@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+ 
 
 // Global OPTIONS handler to avoid 405 on CORS preflight
 Route::options('/{any}', function () {
@@ -1335,6 +1336,52 @@ Route::get('/api/contacts', function () {
     ]);
 })->name('api.contacts');
 
+// Public API: Locations JSON
+Route::get('/api/locations/regions', function () {
+    $regions = DB::table('regions')->orderBy('name')->get(['id','name','code']);
+    return response()->json($regions);
+})->name('api.locations.regions');
+
+Route::get('/api/locations/districts', function (Request $request) {
+    $regionId = $request->query('region_id');
+    $regionCode = $request->query('region_code');
+    $q = DB::table('districts');
+    if ($regionId) { $q->where('region_id', (int)$regionId); }
+    if ($regionCode) {
+        $rid = DB::table('regions')->where('code',$regionCode)->value('id');
+        if ($rid) { $q->where('region_id', $rid); }
+    }
+    $rows = $q->orderBy('name')->get(['id','region_id','name','code']);
+    return response()->json($rows);
+})->name('api.locations.districts');
+
+Route::get('/api/locations/wards', function (Request $request) {
+    $districtId = $request->query('district_id');
+    $districtCode = $request->query('district_code');
+    $q = DB::table('wards');
+    if ($districtId) { $q->where('district_id', (int)$districtId); }
+    if ($districtCode) {
+        $did = DB::table('districts')->where('code',$districtCode)->value('id');
+        if ($did) { $q->where('district_id', $did); }
+    }
+    $rows = $q->orderBy('name')->get(['id','district_id','name','code']);
+    return response()->json($rows);
+})->name('api.locations.wards');
+
+Route::get('/api/locations/streets', function (Request $request) {
+    $wardId = $request->query('ward_id');
+    abort_unless($wardId, 422);
+    $rows = DB::table('streets')->where('ward_id',(int)$wardId)->orderBy('name')->get(['id','ward_id','name']);
+    return response()->json($rows);
+})->name('api.locations.streets');
+
+Route::get('/api/locations/hamlets', function (Request $request) {
+    $streetId = $request->query('street_id');
+    abort_unless($streetId, 422);
+    $rows = DB::table('hamlets')->where('street_id',(int)$streetId)->orderBy('name')->get(['id','street_id','name']);
+    return response()->json($rows);
+})->name('api.locations.hamlets');
+
 // API: Contact form submission
 Route::post('/api/contacts/messages', function (Request $request) {
     $data = $request->validate([
@@ -1474,6 +1521,10 @@ Route::get('/api/blogs', function (Request $request) {
                 $img = $path;
             } elseif (str_starts_with($path, '/storage/')) {
                 $img = url($path);
+            } elseif (str_starts_with($path, '/assets/')) {
+                $img = url($path);
+            } elseif (str_starts_with($path, 'assets/')) {
+                $img = url('/'.$path);
             } else {
                 $img = url(Storage::url($path));
             }
@@ -1501,6 +1552,10 @@ Route::get('/api/blogs/{slug}', function (string $slug) {
             $img = $path;
         } elseif (str_starts_with($path, '/storage/')) {
             $img = url($path);
+        } elseif (str_starts_with($path, '/assets/')) {
+            $img = url($path);
+        } elseif (str_starts_with($path, 'assets/')) {
+            $img = url('/'.$path);
         } else {
             $img = url(Storage::url($path));
         }
@@ -1685,6 +1740,10 @@ Route::get('/blogs', function (Request $request) {
                     $img = $path;
                 } elseif (str_starts_with($path, '/storage/')) {
                     $img = url($path);
+                } elseif (str_starts_with($path, '/assets/')) {
+                    $img = url($path);
+                } elseif (str_starts_with($path, 'assets/')) {
+                    $img = url('/'.$path);
                 } else {
                     $img = url(Storage::url($path));
                 }
@@ -1916,6 +1975,182 @@ Route::middleware([])->group(function () {
         DB::table('blog_posts')->where('id',$id)->delete();
         return redirect()->route('admin.blog.index');
     })->name('admin.blog.delete');
+
+    // One-time: migrate images from storage/app/public to public/assets/images
+    Route::get('/admin/tools/migrate-blog-images', function () use ($ensureAdmin) {
+        $ensureAdmin();
+        $moved = ['cover'=>0,'gallery'=>0];
+        // Move cover images
+        $fromCover = storage_path('app/public/blog');
+        $toCover = public_path('assets/images/blog');
+        File::ensureDirectoryExists($toCover);
+        if (is_dir($fromCover)) {
+            foreach (File::files($fromCover) as $f) {
+                $name = $f->getFilename();
+                $dest = $toCover.DIRECTORY_SEPARATOR.$name;
+                if (!File::exists($dest)) {
+                    File::move($f->getPathname(), $dest);
+                }
+                DB::table('blog_posts')->where('image_path','like','%'.$name.'%')->update([
+                    'image_path' => 'assets/images/blog/'.$name,
+                    'updated_at' => now(),
+                ]);
+                $moved['cover']++;
+            }
+        }
+        // Move gallery images and update JSON
+        $fromGal = storage_path('app/public/blog_gallery');
+        $toGal = public_path('assets/images/blog_gallery');
+        File::ensureDirectoryExists($toGal);
+        if (is_dir($fromGal)) {
+            foreach (File::files($fromGal) as $f) {
+                $name = $f->getFilename();
+                $dest = $toGal.DIRECTORY_SEPARATOR.$name;
+                if (!File::exists($dest)) {
+                    File::move($f->getPathname(), $dest);
+                }
+            }
+            $rows = DB::table('blog_posts')->whereNotNull('gallery')->get(['id','gallery']);
+            foreach ($rows as $r) {
+                $arr = json_decode($r->gallery, true) ?: [];
+                $new = array_map(function($p){ return 'assets/images/blog_gallery/'.basename($p); }, $arr);
+                DB::table('blog_posts')->where('id',$r->id)->update([
+                    'gallery'=>json_encode($new),
+                    'updated_at'=>now(),
+                ]);
+                $moved['gallery'] += count($arr);
+            }
+        }
+        return response()->json(['ok'=>true,'moved'=>$moved]);
+    })->name('admin.tools.migrate_blog_images');
+
+    // Admin tool: Import locations (regions/districts/wards/streets/hamlets) from CSVs
+    Route::match(['GET','POST'], '/admin/tools/import-locations', function () use ($ensureAdmin) {
+        $ensureAdmin();
+        $dir = base_path('resources/views/locations');
+        abort_unless(is_dir($dir), 404);
+
+        $files = glob($dir.DIRECTORY_SEPARATOR.'*.csv');
+        abort_unless($files, 404, 'No CSV files found in locations folder');
+
+        $stats = ['regions'=>0,'districts'=>0,'wards'=>0,'streets'=>0,'hamlets'=>0,'rows'=>0];
+
+        // Caches to reduce queries
+        $regionIdByName = DB::table('regions')->pluck('id','name')->all();
+        $regionIdByCode = DB::table('regions')->whereNotNull('code')->pluck('id','code')->all();
+
+        foreach ($files as $path) {
+            if (!is_readable($path)) continue;
+            if (!$fh = fopen($path, 'r')) continue;
+            $header = fgetcsv($fh);
+            if (!$header) { fclose($fh); continue; }
+            // Map columns
+            $cols = array_map(fn($h)=> strtolower(trim($h)), $header);
+            $get = function($row, $name) use ($cols) {
+                $i = array_search($name, $cols, true);
+                return $i !== false ? trim((string)($row[$i] ?? '')) : '';
+            };
+            while (($row = fgetcsv($fh)) !== false) {
+                $stats['rows']++;
+                $region = $get($row,'region');
+                $regionCode = $get($row,'regioncode');
+                $district = $get($row,'district');
+                $districtCode = $get($row,'districtcode');
+                $ward = $get($row,'ward');
+                $wardCode = $get($row,'wardcode');
+                $street = $get($row,'street');
+                $hamlet = $get($row,'places');
+
+                if (!$region) { continue; }
+
+                // Region upsert
+                $regionKey = $region;
+                $rid = $regionIdByName[$regionKey] ?? null;
+                if (!$rid && $regionCode && isset($regionIdByCode[$regionCode])) { $rid = $regionIdByCode[$regionCode]; }
+                if (!$rid) {
+                    $rid = DB::table('regions')->insertGetId([
+                        'name'=>$regionKey,
+                        'code'=>$regionCode ?: null,
+                        'created_at'=>now(),
+                        'updated_at'=>now(),
+                    ]);
+                    $regionIdByName[$regionKey] = $rid;
+                    if ($regionCode) $regionIdByCode[$regionCode] = $rid;
+                    $stats['regions']++;
+                } else {
+                    if ($regionCode) { DB::table('regions')->where('id',$rid)->update(['code'=>$regionCode,'updated_at'=>now()]); }
+                }
+
+                // District upsert
+                $did = null;
+                if ($district) {
+                    $did = DB::table('districts')->where('region_id',$rid)->where('name',$district)->value('id');
+                    if (!$did) {
+                        $did = DB::table('districts')->insertGetId([
+                            'region_id'=>$rid,
+                            'name'=>$district,
+                            'code'=>$districtCode ?: null,
+                            'created_at'=>now(),
+                            'updated_at'=>now(),
+                        ]);
+                        $stats['districts']++;
+                    } else if ($districtCode) {
+                        DB::table('districts')->where('id',$did)->update(['code'=>$districtCode,'updated_at'=>now()]);
+                    }
+                }
+
+                // Ward upsert
+                $wid = null;
+                if ($ward && $did) {
+                    $wid = DB::table('wards')->where('district_id',$did)->where('name',$ward)->value('id');
+                    if (!$wid) {
+                        $wid = DB::table('wards')->insertGetId([
+                            'district_id'=>$did,
+                            'name'=>$ward,
+                            'code'=>$wardCode ?: null,
+                            'created_at'=>now(),
+                            'updated_at'=>now(),
+                        ]);
+                        $stats['wards']++;
+                    } else if ($wardCode) {
+                        DB::table('wards')->where('id',$wid)->update(['code'=>$wardCode,'updated_at'=>now()]);
+                    }
+                }
+
+                // Street upsert
+                $sid = null;
+                if ($street && $wid) {
+                    $sid = DB::table('streets')->where('ward_id',$wid)->where('name',$street)->value('id');
+                    if (!$sid) {
+                        $sid = DB::table('streets')->insertGetId([
+                            'ward_id'=>$wid,
+                            'name'=>$street,
+                            'created_at'=>now(),
+                            'updated_at'=>now(),
+                        ]);
+                        $stats['streets']++;
+                    }
+                }
+
+                // Hamlet (place) upsert
+                if ($hamlet && $sid) {
+                    $hid = DB::table('hamlets')->where('street_id',$sid)->where('name',$hamlet)->value('id');
+                    if (!$hid) {
+                        DB::table('hamlets')->insert([
+                            'street_id'=>$sid,
+                            'name'=>$hamlet,
+                            'created_at'=>now(),
+                            'updated_at'=>now(),
+                        ]);
+                        $stats['hamlets']++;
+                    }
+                }
+            }
+            fclose($fh);
+        }
+
+        return response()->json(['ok'=>true,'stats'=>$stats]);
+    })->name('admin.tools.import_locations');
 });
 
 // Admin: User management (admins CRUD minimal)
