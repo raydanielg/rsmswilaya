@@ -34,6 +34,7 @@ import ResultsDistrict from './components/ResultsDistrict.vue';
 import SchoolsList from './components/Schools.vue';
 import Maintenance from './components/Maintenance.vue';
 import LegalPage from './components/LegalPage.vue';
+import PdfJsViewer from './components/PdfJsViewer.vue';
 app.component('app-header', Header);
 app.component('hero-section', Hero);
 app.component('welcome-section', Welcome);
@@ -51,6 +52,7 @@ app.component('results-district', ResultsDistrict);
 app.component('schools-list', SchoolsList);
 app.component('maintenance-page', Maintenance);
 app.component('legal-page', LegalPage);
+app.component('pdf-js-viewer', PdfJsViewer);
 
 /**
  * The following block of code may be used to automatically register your

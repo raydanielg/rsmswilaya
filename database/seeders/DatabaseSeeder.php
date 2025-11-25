@@ -30,5 +30,10 @@ class DatabaseSeeder extends Seeder
                 'updated_at' => now(),
             ]);
         }
+
+        // Seed Mwanza regions and districts from JSON
+        $this->call([
+            MwanzaLocationsSeeder::class,
+        ]);
     }
 }
