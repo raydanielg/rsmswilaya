@@ -147,9 +147,31 @@
             <a href="/admin/schools/template" class="text-xs text-primary-700 hover:underline">Download template</a>
             <div v-if="errorBulk" class="text-sm text-red-600 mt-1">{{ errorBulk }}</div>
           </div>
+
+          <div v-if="bulkPreviewRows.length" class="border border-gray-200 rounded-lg p-2 max-h-56 overflow-auto text-xs">
+            <div class="font-semibold mb-1">Preview ({{ bulkPreviewRows.length }} row<span v-if="bulkPreviewRows.length !== 1">s</span>)</div>
+            <table class="w-full text-left">
+              <thead>
+                <tr class="text-gray-600">
+                  <th class="pr-2 py-1">Name</th>
+                  <th class="pr-2 py-1">Code</th>
+                  <th class="pr-2 py-1">Level</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, i) in bulkPreviewRows" :key="i" class="border-t border-gray-100">
+                  <td class="pr-2 py-0.5">{{ row.name }}</td>
+                  <td class="pr-2 py-0.5">{{ row.code || '—' }}</td>
+                  <td class="pr-2 py-0.5 capitalize">{{ row.level }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
           <div class="flex justify-end gap-3">
             <button type="button" class="px-4 py-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-100" @click="closeBulk">Cancel</button>
-            <button :disabled="submittingBulk" class="px-4 py-2 rounded-lg text-white bg-primary-700 hover:bg-primary-800 disabled:opacity-60">{{ submittingBulk ? 'Uploading…' : 'Upload' }}</button>
+            <button type="button" class="px-4 py-2 rounded-lg border border-primary-700 text-primary-700 bg-white hover:bg-primary-50" @click="prepareBulkPreview">Preview</button>
+            <button type="submit" :disabled="submittingBulk || !bulkPreviewReady" class="px-4 py-2 rounded-lg text-white bg-primary-700 hover:bg-primary-800 disabled:opacity-60">{{ submittingBulk ? 'Uploading…' : 'Confirm Upload' }}</button>
           </div>
         </form>
       </div>
@@ -241,6 +263,8 @@ const bulkDistricts = ref([])
 const fileInput = ref(null)
 const submittingBulk = ref(false)
 const errorBulk = ref('')
+const bulkPreviewRows = ref([])
+const bulkPreviewReady = ref(false)
 
 const openEdit = ref(false)
 const editForm = ref({ id:'', name:'', code:'', level:'secondary', region_id:'', district_id:'' })
@@ -288,7 +312,7 @@ async function onRegionChange(){
 }
 
 function closeAdd(){ openAdd.value = false; addForm.value = { region_id: filters.value.region || '', district_id: filters.value.district || '', name: '', code: '', level: 'secondary' }; addDistricts.value = []; errorAdd.value='' }
-function closeBulk(){ openBulk.value = false; bulk.value = { region_id: filters.value.region || '', district_id: filters.value.district || '' }; bulkDistricts.value = []; errorBulk.value='' }
+function closeBulk(){ openBulk.value = false; bulk.value = { region_id: filters.value.region || '', district_id: filters.value.district || '' }; bulkDistricts.value = []; errorBulk.value=''; bulkPreviewRows.value = []; bulkPreviewReady.value = false; if (fileInput.value) fileInput.value.value = '' }
 
 async function loadAddDistricts(){
   addDistricts.value = []
@@ -332,7 +356,55 @@ async function createSchool(){
   } catch(e){ errorAdd.value='Failed to save' } finally { submittingAdd.value=false }
 }
 
+function parseCsvPreview(text){
+  const lines = text.split(/\r?\n/).filter(l => l.trim() !== '')
+  if (!lines.length) return []
+  const headerParts = lines[0].split(',').map(h => h.trim().toLowerCase())
+  let hasHeader = headerParts.includes('name') || headerParts.includes('code') || headerParts.includes('level')
+  const rows = []
+  const startIdx = hasHeader ? 1 : 0
+  for (let i = startIdx; i < lines.length; i++) {
+    const cols = lines[i].split(',')
+    let name = ''
+    let code = ''
+    let level = 'secondary'
+    if (hasHeader) {
+      const nameIdx = headerParts.indexOf('name')
+      const codeIdx = headerParts.indexOf('code')
+      const levelIdx = headerParts.indexOf('level')
+      if (nameIdx !== -1) name = (cols[nameIdx] || '').trim()
+      if (codeIdx !== -1) code = (cols[codeIdx] || '').trim()
+      if (levelIdx !== -1) {
+        const lvl = (cols[levelIdx] || '').trim().toLowerCase()
+        if (['primary','secondary','other'].includes(lvl)) level = lvl
+      }
+    } else {
+      name = (cols[0] || '').trim()
+      code = (cols[1] || '').trim()
+      const lvl = (cols[2] || '').trim().toLowerCase()
+      if (['primary','secondary','other'].includes(lvl)) level = lvl
+    }
+    if (!name) continue
+    rows.push({ name, code, level })
+  }
+  return rows
+}
+
+async function prepareBulkPreview(){
+  errorBulk.value=''; bulkPreviewRows.value = []; bulkPreviewReady.value = false
+  const file = fileInput.value?.files?.[0]
+  if(!file){ errorBulk.value='Please choose a CSV file'; return }
+  try{
+    const text = await file.text()
+    const rows = parseCsvPreview(text)
+    if (!rows.length){ errorBulk.value = 'No valid rows found in CSV'; return }
+    bulkPreviewRows.value = rows
+    bulkPreviewReady.value = true
+  } catch(e){ errorBulk.value='Failed to read CSV file'; }
+}
+
 async function uploadBulk(){
+  if (!bulkPreviewReady.value){ errorBulk.value = 'Please generate a preview first.'; return }
   submittingBulk.value = true; errorBulk.value=''
   try{
     const file = fileInput.value?.files?.[0]
@@ -344,7 +416,7 @@ async function uploadBulk(){
     if(!res.ok) throw new Error('upload failed')
     await fetchSchools()
     closeBulk()
-  } catch(e){ errorBulk.value='Failed to upload' } finally { submittingBulk.value=false }
+  } catch(e){ errorBulk.value='Failed to upload'; } finally { submittingBulk.value=false }
 }
 
 onMounted(async()=>{
