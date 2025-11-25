@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use Maatwebsite\Excel\Facades\Excel;
 
 // Global OPTIONS handler to avoid 405 on CORS preflight
 Route::options('/{any}', function () {
@@ -1027,6 +1028,86 @@ Route::middleware([])->group(function () {
         return redirect()->route('admin.regions.index');
     })->name('admin.regions.store');
 
+    // API: bulk import regions + councils from Excel
+    Route::post('/api/admin/regions/bulk-locations', function (Request $request) {
+        if (!session('admin_authenticated')) abort(403);
+        $validated = $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv',
+        ]);
+
+        $file = $validated['file'];
+        $collection = Excel::toCollection(null, $file)->first();
+        if (!$collection || $collection->isEmpty()) {
+            return response()->json(['inserted_regions'=>0,'inserted_councils'=>0,'skipped'=>0,'errors'=>['Empty file']], 422);
+        }
+
+        $insertedRegions = 0; $insertedCouncils = 0; $skipped = 0; $errors = [];
+
+        $headerRow = $collection->shift();
+        $map = [];
+        foreach ($headerRow as $idx => $h) {
+            $key = strtolower(trim((string)$h));
+            if ($key) { $map[$key] = $idx; }
+        }
+
+        $hasRegion = isset($map['region']) || isset($map['region_name']);
+        $hasCouncil = isset($map['council']) || isset($map['district']) || isset($map['council_name']) || isset($map['district_name']);
+        if (!$hasRegion || !$hasCouncil) {
+            return response()->json(['inserted_regions'=>0,'inserted_councils'=>0,'skipped'=>0,'errors'=>['Missing Region / Council columns']], 422);
+        }
+
+        foreach ($collection as $row) {
+            $regionName = null; $councilName = null;
+            $regionIdx = $map['region'] ?? $map['region_name'] ?? null;
+            $councilIdx = $map['council'] ?? $map['district'] ?? $map['council_name'] ?? $map['district_name'] ?? null;
+            if ($regionIdx !== null) {
+                $regionName = trim((string)($row[$regionIdx] ?? ''));
+            }
+            if ($councilIdx !== null) {
+                $councilName = trim((string)($row[$councilIdx] ?? ''));
+            }
+            if (!$regionName || !$councilName) { $skipped++; continue; }
+
+            try {
+                $region = DB::table('regions')->where('name', $regionName)->first();
+                if (!$region) {
+                    $regionId = DB::table('regions')->insertGetId([
+                        'name' => $regionName,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                    $region = (object)['id' => $regionId];
+                    $insertedRegions++;
+                }
+
+                $exists = DB::table('districts')
+                    ->where('region_id', $region->id)
+                    ->where('name', $councilName)
+                    ->exists();
+                if (!$exists) {
+                    DB::table('districts')->insert([
+                        'region_id' => $region->id,
+                        'name' => $councilName,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                    $insertedCouncils++;
+                } else {
+                    $skipped++;
+                }
+            } catch (\Throwable $e) {
+                $skipped++; $errors[] = $regionName.' - '.$councilName;
+            }
+        }
+
+        return response()->json([
+            'inserted_regions' => $insertedRegions,
+            'inserted_councils' => $insertedCouncils,
+            'skipped' => $skipped,
+            'errors' => $errors,
+        ]);
+    })->name('api.admin.regions.bulk-locations');
+
     // API: Regions list (JSON)
     Route::get('/api/admin/regions', function () {
         if (!session('admin_authenticated')) abort(403);
@@ -1105,6 +1186,15 @@ Route::get('/contact', function () {
 Route::get('/faq', function () {
     return view('faq');
 })->name('faq');
+
+// Exams landing + detail pages
+Route::get('/exams', function () {
+    return view('exams.index');
+})->name('exams.index');
+
+Route::get('/exams/{code}', function (string $code) {
+    return view('exams.show', ['code' => strtolower($code)]);
+})->name('exams.show');
 
 // Results Center (public)
 Route::get('/results-center', function () {

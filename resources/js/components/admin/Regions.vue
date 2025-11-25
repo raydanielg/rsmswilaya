@@ -1,8 +1,11 @@
 <template>
   <div class="max-w-screen-xl mx-auto space-y-8">
-    <div class="flex items-center justify-between">
+    <div class="flex items-center justify-between gap-3 flex-wrap">
       <h1 class="text-2xl font-semibold">Regions</h1>
-      <button class="px-4 py-2 rounded bg-[#0AA74A] text-white hover:bg-[#089543]" @click="openModal = true">Add Region</button>
+      <div class="flex items-center gap-2">
+        <button class="px-3 py-2 rounded border border-[#d7d6d4] bg-white hover:bg-[#f7f7f6] text-sm" @click="openBulk = true">Bulk upload locations</button>
+        <button class="px-4 py-2 rounded bg-[#0AA74A] text-white hover:bg-[#089543]" @click="openModal = true">Add Region</button>
+      </div>
     </div>
     <div class="border-t border-dashed border-[#d7d6d4]"></div>
 
@@ -21,7 +24,7 @@
       </div>
     </div>
 
-    <!-- Modal -->
+    <!-- Add Region Modal -->
     <div v-if="openModal" class="fixed inset-0 z-50">
       <div class="absolute inset-0 bg-black/40" @click="closeModal" />
       <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-md shadow-lg w-[95vw] max-w-md border border-[#ecebea]">
@@ -42,6 +45,43 @@
         </form>
       </div>
     </div>
+
+    <!-- Bulk upload modal -->
+    <div v-if="openBulk" class="fixed inset-0 z-50">
+      <div class="absolute inset-0 bg-black/40" @click="closeBulk" />
+      <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-md shadow-lg w-[95vw] max-w-md border border-[#ecebea]">
+        <div class="px-4 py-3 border-b border-[#ecebea] flex items-center justify-between">
+          <div class="font-semibold text-[#0B6B3A]">Bulk upload locations</div>
+          <button class="text-[#6b6a67] hover:text-[#0B6B3A]" @click="closeBulk">✕</button>
+        </div>
+        <form @submit.prevent="uploadBulk" class="p-4 space-y-4">
+          <div class="text-sm text-[#6b6a67]">
+            <p class="mb-1">Upload an Excel file with columns for <strong>Region</strong> and <strong>Council</strong> (or District).</p>
+            <p class="text-xs">Accepted headers: <code>Region</code> / <code>Region_Name</code> and <code>Council</code>, <code>District</code>, <code>Council_Name</code> or <code>District_Name</code>.</p>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Excel file</label>
+            <input ref="bulkFile" type="file" accept=".xlsx,.xls,.csv" required />
+            <div v-if="bulkError" class="text-sm text-red-600 mt-1">{{ bulkError }}</div>
+          </div>
+          <div v-if="bulkResult" class="text-xs text-[#6b6a67] space-y-1 border border-dashed border-[#e0dfdd] rounded p-2">
+            <div>Inserted regions: <strong>{{ bulkResult.inserted_regions }}</strong></div>
+            <div>Inserted councils: <strong>{{ bulkResult.inserted_councils }}</strong></div>
+            <div>Skipped: <strong>{{ bulkResult.skipped }}</strong></div>
+            <div v-if="bulkResult.errors && bulkResult.errors.length" class="mt-1">
+              <div class="font-semibold">Errors:</div>
+              <ul class="list-disc list-inside">
+                <li v-for="(e, idx) in bulkResult.errors" :key="idx">{{ e }}</li>
+              </ul>
+            </div>
+          </div>
+          <div class="flex justify-end gap-3">
+            <button type="button" class="px-4 py-2 rounded border" @click="closeBulk">Cancel</button>
+            <button :disabled="bulkSubmitting" class="px-4 py-2 rounded bg-[#0B6B3A] text-white hover:bg-[#095a31] disabled:opacity-60">{{ bulkSubmitting ? 'Uploading…' : 'Upload' }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -54,6 +94,12 @@ const openModal = ref(false)
 const form = ref({ name: '' })
 const error = ref('')
 const submitting = ref(false)
+
+const openBulk = ref(false)
+const bulkFile = ref(null)
+const bulkSubmitting = ref(false)
+const bulkError = ref('')
+const bulkResult = ref(null)
 
 function formatCount(n){
   const x = Number(n||0)
@@ -75,6 +121,14 @@ function closeModal(){
   openModal.value = false
   form.value.name = ''
   error.value = ''
+}
+
+function closeBulk(){
+  openBulk.value = false
+  bulkSubmitting.value = false
+  bulkError.value = ''
+  bulkResult.value = null
+  if (bulkFile.value) bulkFile.value.value = ''
 }
 
 async function createRegion(){
@@ -100,6 +154,36 @@ async function createRegion(){
     console.error(e)
     error.value = 'Failed to save region'
   } finally { submitting.value = false }
+}
+
+async function uploadBulk(){
+  bulkSubmitting.value = true
+  bulkError.value = ''
+  bulkResult.value = null
+  try {
+    const file = bulkFile.value?.files?.[0]
+    if (!file) { bulkError.value = 'Please choose a file'; return }
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+    const fd = new FormData()
+    fd.append('file', file)
+    const res = await fetch('/api/admin/regions/bulk-locations', {
+      method: 'POST',
+      headers: { 'X-CSRF-TOKEN': csrf },
+      body: fd,
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      bulkError.value = data?.message || 'Upload failed'
+      return
+    }
+    bulkResult.value = data
+    await fetchRegions()
+  } catch (e) {
+    console.error(e)
+    bulkError.value = 'Failed to upload locations'
+  } finally {
+    bulkSubmitting.value = false
+  }
 }
 
 onMounted(fetchRegions)
