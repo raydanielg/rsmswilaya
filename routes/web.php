@@ -978,8 +978,8 @@ Route::middleware([])->group(function () {
         $regions = DB::table('regions')
             ->leftJoin('districts','districts.region_id','=','regions.id')
             ->leftJoin('schools','schools.district_id','=','districts.id')
-            ->groupBy('regions.id','regions.name','regions.created_at','regions.updated_at')
-            ->select('regions.*', DB::raw('COUNT(schools.id) as schools_count'))
+            ->groupBy('regions.id','regions.name','regions.code')
+            ->select('regions.id','regions.name','regions.code', DB::raw('COUNT(schools.id) as schools_count'))
             ->orderBy('regions.name')
             ->get();
         return view('admin.regions.index', compact('regions'));
@@ -1007,8 +1007,8 @@ Route::middleware([])->group(function () {
         $regions = DB::table('regions')
             ->leftJoin('districts','districts.region_id','=','regions.id')
             ->leftJoin('schools','schools.district_id','=','districts.id')
-            ->groupBy('regions.id','regions.name','regions.created_at','regions.updated_at')
-            ->select('regions.id','regions.name', DB::raw('COUNT(schools.id) as schools_count'))
+            ->groupBy('regions.id','regions.name','regions.code')
+            ->select('regions.id','regions.name','regions.code', DB::raw('COUNT(schools.id) as schools_count'))
             ->orderBy('regions.name')
             ->get();
         return response()->json($regions);
