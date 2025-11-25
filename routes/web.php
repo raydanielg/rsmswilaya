@@ -211,6 +211,8 @@ Route::get('/api/results/district-schools', function (Request $request) {
             $clean = ltrim($clean, '/');
             $absUrl = route('results.files.show', ['path' => $clean]);
         }
+        // viewer URL for inline PDF view via /view/pdf
+        $viewUrl = route('pdf.viewer', ['src' => $absUrl]);
 
         $code = $r->type_code ?: $exam;
         $name = $r->type_name ?: $exam;
@@ -221,6 +223,7 @@ Route::get('/api/results/district-schools', function (Request $request) {
             'file_url'=>$fileUrl,
             'created_at'=>$r->created_at,
             'url'=> $absUrl,
+            'view_url' => $viewUrl,
         ];
         if (!isset($schoolDocs[$r->school_id])) $schoolDocs[$r->school_id] = $absUrl;
     }
@@ -229,10 +232,12 @@ Route::get('/api/results/district-schools', function (Request $request) {
         $schoolsQ->where('name','like','%'.$q.'%');
     }
     $schools = $schoolsQ->orderBy('name')->get()->map(function($s) use ($schoolDocs){
+        $abs = $schoolDocs[$s->id] ?? null;
         return [
             'id'=>$s->id,
             'name'=>$s->name,
-            'url'=> $schoolDocs[$s->id] ?? null,
+            'url'=> $abs,
+            'view_url' => $abs ? route('pdf.viewer', ['src' => $abs]) : null,
         ];
     });
     return response()->json(['schools'=>$schools, 'types'=>$types]);
@@ -274,6 +279,7 @@ Route::get('/api/results/school-docs', function (Request $request) {
             $clean = ltrim($clean, '/');
             $absUrl = route('results.files.show', ['path' => $clean]);
         }
+        $viewUrl = route('pdf.viewer', ['src' => $absUrl]);
 
         $code = $r->type_code ?: $exam;
         $name = $r->type_name ?: $exam;
@@ -282,6 +288,7 @@ Route::get('/api/results/school-docs', function (Request $request) {
             'file_url'=>$fileUrl,
             'created_at'=>$r->created_at,
             'url'=>$absUrl,
+            'view_url' => $viewUrl,
         ];
     }
     return response()->json(['types'=>$types]);
