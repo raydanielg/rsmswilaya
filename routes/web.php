@@ -978,8 +978,8 @@ Route::middleware([])->group(function () {
         $regions = DB::table('regions')
             ->leftJoin('districts','districts.region_id','=','regions.id')
             ->leftJoin('schools','schools.district_id','=','districts.id')
-            ->groupBy('regions.id','regions.name','regions.created_at','regions.updated_at')
-            ->select('regions.*', DB::raw('COUNT(schools.id) as schools_count'))
+            ->groupBy('regions.id','regions.name')
+            ->select('regions.id','regions.name', DB::raw('COUNT(schools.id) as schools_count'))
             ->orderBy('regions.name')
             ->get();
         return view('admin.regions.index', compact('regions'));
@@ -1388,6 +1388,50 @@ Route::post('/api/admin/contacts', function (Request $request) {
     return response()->json(['success' => true]);
 })->name('api.admin.contacts.upsert');
 
+// Legal pages APIs (Terms, Privacy, Policy)
+Route::get('/api/terms', function(){
+    $pairs = DB::table('site_settings')->pluck('value','key');
+    $title = $pairs['legal.terms_title'] ?? 'Terms and Conditions';
+    $body  = $pairs['legal.terms_html'] ?? '<p>These Terms and Conditions govern your use of this service.</p>';
+    return response()->json(['title'=>$title,'body'=>$body]);
+})->name('api.legal.terms');
+
+Route::get('/api/privacy', function(){
+    $pairs = DB::table('site_settings')->pluck('value','key');
+    $title = $pairs['legal.privacy_title'] ?? 'Privacy Policy';
+    $body  = $pairs['legal.privacy_html'] ?? '<p>We value your privacy and describe our practices in this policy.</p>';
+    return response()->json(['title'=>$title,'body'=>$body]);
+})->name('api.legal.privacy');
+
+Route::get('/api/policy', function(){
+    $pairs = DB::table('site_settings')->pluck('value','key');
+    $title = $pairs['legal.policy_title'] ?? 'Site Policy';
+    $body  = $pairs['legal.policy_html'] ?? '<p>This policy outlines guidelines and acceptable use.</p>';
+    return response()->json(['title'=>$title,'body'=>$body]);
+})->name('api.legal.policy');
+
+// Legal pages (web)
+Route::get('/terms', function(){
+    $pairs = DB::table('site_settings')->pluck('value','key');
+    $title = $pairs['legal.terms_title'] ?? 'Terms and Conditions';
+    $body  = $pairs['legal.terms_html'] ?? '<p>These Terms and Conditions govern your use of this service.</p>';
+    return view('legal.page', ['title'=>$title,'body'=>$body]);
+})->name('legal.terms');
+
+Route::get('/privacy', function(){
+    $pairs = DB::table('site_settings')->pluck('value','key');
+    $title = $pairs['legal.privacy_title'] ?? 'Privacy Policy';
+    $body  = $pairs['legal.privacy_html'] ?? '<p>We value your privacy and describe our practices in this policy.</p>';
+    return view('legal.page', ['title'=>$title,'body'=>$body]);
+})->name('legal.privacy');
+
+Route::get('/policy', function(){
+    $pairs = DB::table('site_settings')->pluck('value','key');
+    $title = $pairs['legal.policy_title'] ?? 'Site Policy';
+    $body  = $pairs['legal.policy_html'] ?? '<p>This policy outlines guidelines and acceptable use.</p>';
+    return view('legal.page', ['title'=>$title,'body'=>$body]);
+})->name('legal.policy');
+
 // API: calendar grid + events for a given month (YYYY-MM)
 Route::get('/api/calendar', function (Request $request) {
     $now = Carbon::now();
@@ -1458,6 +1502,81 @@ Route::get('/api/events/recent', function (Request $request) {
     ];});
     return response()->json($data);
 })->name('api.events.recent');
+
+// API: publications folders (with counts)
+Route::get('/api/publications/folders', function () {
+    $rows = DB::table('publication_folders')
+        ->leftJoin('publications','publications.folder_id','=','publication_folders.id')
+        ->groupBy('publication_folders.id','publication_folders.name','publication_folders.slug')
+        ->select('publication_folders.id','publication_folders.name','publication_folders.slug', DB::raw('COUNT(publications.id) as count'))
+        ->orderBy('publication_folders.name')
+        ->get();
+    return response()->json($rows);
+})->name('api.publications.folders');
+
+// API: publications list
+Route::get('/api/publications', function (Request $request) {
+    $limit = (int)($request->query('limit', 12)); if ($limit < 1 || $limit > 50) $limit = 12;
+    $page = max(1, (int)$request->query('page', 1));
+    $offset = ($page - 1) * $limit;
+    $q = DB::table('publications')->orderByDesc('published_at')->orderByDesc('created_at');
+    if ($request->filled('folder')) {
+        $folder = DB::table('publication_folders')->where('slug', $request->string('folder'))->first();
+        if ($folder) { $q->where('folder_id', $folder->id); }
+    }
+    $total = $q->count();
+    $rows = $q->offset($offset)->limit($limit)->get();
+    $items = $rows->map(function($p){
+        $url = null; $isExternal = false; $path = (string)($p->file_path ?? '');
+        if ($path) {
+            if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+                $url = $path; $isExternal = true;
+            } elseif (str_starts_with($path, '/storage/')) {
+                $url = url($path);
+            } elseif (str_starts_with($path, '/assets/')) {
+                $url = url($path);
+            } elseif (str_starts_with($path, 'assets/')) {
+                $url = url('/'.$path);
+            } else {
+                $url = url(Storage::url($path));
+            }
+        }
+        return [
+            'id' => $p->id,
+            'title' => $p->title,
+            'file_url' => $url,
+            'file_size' => $p->file_size,
+            'published_at' => optional($p->published_at)->toAtomString() ?? optional($p->created_at)->toAtomString(),
+            'external' => $isExternal,
+        ];
+    });
+    return response()->json(['items'=>$items, 'total'=>$total, 'page'=>$page, 'limit'=>$limit]);
+})->name('api.publications.index');
+
+// API: publication detail
+Route::get('/api/publications/{id}', function (int $id) {
+    $p = DB::table('publications')->where('id',$id)->first();
+    abort_unless($p, 404);
+    $folder = $p->folder_id ? DB::table('publication_folders')->where('id',$p->folder_id)->first() : null;
+    $url = null; $isExternal = false; $path = (string)($p->file_path ?? '');
+    if ($path) {
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) { $url = $path; $isExternal = true; }
+        elseif (str_starts_with($path, '/storage/')) { $url = url($path); }
+        elseif (str_starts_with($path, '/assets/')) { $url = url($path); }
+        elseif (str_starts_with($path, 'assets/')) { $url = url('/'.$path); }
+        else { $url = url(Storage::url($path)); }
+    }
+    return response()->json([
+        'id' => $p->id,
+        'title' => $p->title,
+        'folder' => $folder ? ['id'=>$folder->id, 'name'=>$folder->name, 'slug'=>$folder->slug] : null,
+        'file_url' => $url,
+        'file_size' => $p->file_size,
+        'published_at' => optional($p->published_at)->toAtomString() ?? optional($p->created_at)->toAtomString(),
+        'external' => $isExternal,
+        'download' => route('publication.download', ['id'=>$p->id])
+    ]);
+})->name('api.publications.show');
 
 // API: blogs list
 Route::get('/api/blogs', function (Request $request) {
