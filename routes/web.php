@@ -1780,21 +1780,21 @@ Route::get('/api/publications', function (Request $request) {
     $total = $q->count();
     $rows = $q->offset($offset)->limit($limit)->get();
     $items = $rows->map(function($p){
-        $url = null; $download = null; $isExternal = false; $path = (string)($p->file_path ?? '');
+        $view = null; $download = null; $isExternal = false; $path = (string)($p->file_path ?? '');
         if ($path) {
             if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
-                $url = $path; $download = $path; $isExternal = true;
+                $view = $path; $download = $path; $isExternal = true;
             } else {
-                // For internal files, always go through the download route to avoid direct /storage access issues
-                $url = route('publication.download', ['id' => $p->id]);
-                $download = $url;
+                // Internal files: separate view (inline) and download URLs
+                $view = route('publication.view', ['id' => $p->id]);
+                $download = route('publication.download', ['id' => $p->id]);
             }
         }
         return [
             'id' => $p->id,
             'title' => $p->title,
-            'file_url' => $url,
-            'view_url' => $url,
+            'file_url' => $view,
+            'view_url' => $view,
             'download' => $download,
             'file_size' => $p->file_size,
             'published_at' => optional($p->published_at)->toAtomString() ?? optional($p->created_at)->toAtomString(),
@@ -1809,23 +1809,26 @@ Route::get('/api/publications/{id}', function (int $id) {
     $p = DB::table('publications')->where('id',$id)->first();
     abort_unless($p, 404);
     $folder = $p->folder_id ? DB::table('publication_folders')->where('id',$p->folder_id)->first() : null;
-    $url = null; $isExternal = false; $path = (string)($p->file_path ?? '');
+    $url = null; $view = null; $download = null; $isExternal = false; $path = (string)($p->file_path ?? '');
     if ($path) {
-        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) { $url = $path; $isExternal = true; }
-        elseif (str_starts_with($path, '/storage/')) { $url = url($path); }
-        elseif (str_starts_with($path, '/assets/')) { $url = url($path); }
-        elseif (str_starts_with($path, 'assets/')) { $url = url('/'.$path); }
-        else { $url = url(Storage::url($path)); }
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            $url = $path; $view = $path; $download = $path; $isExternal = true;
+        } else {
+            $view = route('publication.view', ['id' => $p->id]);
+            $download = route('publication.download', ['id' => $p->id]);
+            $url = $view;
+        }
     }
     return response()->json([
         'id' => $p->id,
         'title' => $p->title,
         'folder' => $folder ? ['id'=>$folder->id, 'name'=>$folder->name, 'slug'=>$folder->slug] : null,
         'file_url' => $url,
+        'view_url' => $view,
         'file_size' => $p->file_size,
         'published_at' => optional($p->published_at)->toAtomString() ?? optional($p->created_at)->toAtomString(),
         'external' => $isExternal,
-        'download' => route('publication.download', ['id'=>$p->id])
+        'download' => $download,
     ]);
 })->name('api.publications.show');
 
@@ -1973,19 +1976,38 @@ Route::get('/publications/{slug}', function (string $slug) {
         ->orderByDesc('published_at')->orderByDesc('created_at')->get();
     $docs = $rows->map(function ($r) {
         $isExternal = Str::startsWith($r->file_path, ['http://','https://','/http']);
-        // For internal files, always use the download route so we don't depend on direct /storage access
-        $url = $isExternal ? $r->file_path : route('publication.download', ['id' => $r->id]);
+        // For internal files, use a dedicated view route for inline preview, and keep download route for saving
+        $viewUrl = $isExternal ? $r->file_path : route('publication.view', ['id' => $r->id]);
         $downloadUrl = $isExternal ? $r->file_path : route('publication.download', ['id' => $r->id]);
         return [
             'name' => $r->title,
             'date' => optional($r->published_at)->format('Y-m-d') ?? optional($r->created_at)->format('Y-m-d'),
             'size' => $r->file_size ? number_format($r->file_size / 1048576, 2).' MB' : '-',
-            'url' => $url,
+            'url' => $viewUrl,
             'download_url' => $downloadUrl,
         ];
     });
     return view('publications.folder', ['folder' => $folder, 'docs' => $docs]);
 })->name('publications.folder');
+
+// View publication file inline (preview)
+Route::get('/view/publication/{id}', function (int $id) {
+    $publication = DB::table('publications')->where('id', $id)->first();
+    abort_unless($publication, 404);
+
+    $isExternal = Str::startsWith($publication->file_path, ['http://','https://','/http']);
+
+    if ($isExternal) {
+        return redirect($publication->file_path);
+    }
+
+    $filePath = storage_path('app/public/' . $publication->file_path);
+    abort_unless(file_exists($filePath), 404);
+
+    // Let the browser decide how to preview based on the file's MIME type
+    $mime = mime_content_type($filePath) ?: 'application/octet-stream';
+    return response()->file($filePath, ['Content-Type' => $mime]);
+})->name('publication.view');
 
 // Download publication file
 Route::get('/download/publication/{id}', function (int $id) {
