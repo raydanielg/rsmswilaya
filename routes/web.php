@@ -251,14 +251,9 @@ Route::get('/api/results/school-docs', function (Request $request) {
     return response()->json(['types'=>$types]);
 })->name('api.results.school_docs');
 
-// API: exam types (list) - only real public exams, not class types
+// API: exam types (list)
 Route::get('/api/exams/types', function () {
-    $allowed = ['SFNA','PSLE','FTNA','CSEE','ACSEE'];
-
-    $types = DB::table('result_types')
-        ->whereIn('code', $allowed)
-        ->orderBy('name')
-        ->get();
+    $types = DB::table('result_types')->orderBy('name')->get();
     $yearMap = DB::table('result_type_year')->get()->groupBy('result_type_id');
     $years = DB::table('result_years')->get()->keyBy('id');
     $data = $types->map(function($t) use ($yearMap, $years){
@@ -276,13 +271,9 @@ Route::get('/api/exams/types', function () {
     return response()->json($data);
 })->name('api.exams.types');
 
-// API: single exam type detail by code (only for allowed public exams)
+// API: single exam type detail by code
 Route::get('/api/exams/{code}', function (string $code) {
-    $allowed = ['SFNA','PSLE','FTNA','CSEE','ACSEE'];
-    $upper = strtoupper($code);
-    abort_unless(in_array($upper, $allowed, true), 404);
-
-    $type = DB::table('result_types')->whereRaw('upper(code)=?', [$upper])->first();
+    $type = DB::table('result_types')->whereRaw('upper(code)=?', [strtoupper($code)])->first();
     abort_unless($type, 404);
     $yearIds = DB::table('result_type_year')->where('result_type_id', $type->id)->pluck('result_year_id');
     $yearList = DB::table('result_years')->whereIn('id', $yearIds)->orderByDesc('year')->pluck('year');
