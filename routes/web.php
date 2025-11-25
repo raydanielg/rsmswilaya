@@ -693,8 +693,8 @@ Route::middleware([])->group(function () {
         $ensureAdmin();
         $folders = DB::table('publication_folders')
             ->leftJoin('publications','publications.folder_id','=','publication_folders.id')
-            ->groupBy('publication_folders.id','publication_folders.name','publication_folders.slug','publication_folders.created_at')
-            ->select('publication_folders.*', DB::raw('COUNT(publications.id) as docs_count'))
+            ->groupBy('publication_folders.id','publication_folders.name','publication_folders.slug')
+            ->select('publication_folders.id','publication_folders.name','publication_folders.slug', DB::raw('COUNT(publications.id) as docs_count'))
             ->orderBy('publication_folders.name')
             ->get();
         return view('admin.publications.index-admin', compact('folders'));
@@ -1415,21 +1415,21 @@ Route::get('/terms', function(){
     $pairs = DB::table('site_settings')->pluck('value','key');
     $title = $pairs['legal.terms_title'] ?? 'Terms and Conditions';
     $body  = $pairs['legal.terms_html'] ?? '<p>These Terms and Conditions govern your use of this service.</p>';
-    return view('legal.page', ['title'=>$title,'body'=>$body]);
+    return view('legal.page', ['title'=>$title,'body'=>$body,'endpoint'=>'/api/terms']);
 })->name('legal.terms');
 
 Route::get('/privacy', function(){
     $pairs = DB::table('site_settings')->pluck('value','key');
     $title = $pairs['legal.privacy_title'] ?? 'Privacy Policy';
     $body  = $pairs['legal.privacy_html'] ?? '<p>We value your privacy and describe our practices in this policy.</p>';
-    return view('legal.page', ['title'=>$title,'body'=>$body]);
+    return view('legal.page', ['title'=>$title,'body'=>$body,'endpoint'=>'/api/privacy']);
 })->name('legal.privacy');
 
 Route::get('/policy', function(){
     $pairs = DB::table('site_settings')->pluck('value','key');
     $title = $pairs['legal.policy_title'] ?? 'Site Policy';
     $body  = $pairs['legal.policy_html'] ?? '<p>This policy outlines guidelines and acceptable use.</p>';
-    return view('legal.page', ['title'=>$title,'body'=>$body]);
+    return view('legal.page', ['title'=>$title,'body'=>$body,'endpoint'=>'/api/policy']);
 })->name('legal.policy');
 
 // API: calendar grid + events for a given month (YYYY-MM)

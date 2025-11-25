@@ -23,9 +23,12 @@
 
       <main class="px-4 md:px-8 py-8 flex-1">
         <div class="max-w-screen-lg mx-auto bg-white rounded-lg border border-[#ecebea] p-6 shadow-sm">
-          <article class="prose max-w-none">
-            {!! $body !!}
-          </article>
+          <legal-page endpoint="{{ $endpoint ?? '/api/terms' }}" :fallback='@json(["title"=>$title, "body"=>$body])'></legal-page>
+          <noscript>
+            <article class="prose max-w-none mt-4">
+              {!! $body !!}
+            </article>
+          </noscript>
         </div>
       </main>
 
