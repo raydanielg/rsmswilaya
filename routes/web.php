@@ -748,7 +748,7 @@ Route::middleware([])->group(function () {
         $q = DB::table('schools')
             ->join('districts','districts.id','=','schools.district_id')
             ->join('regions','regions.id','=','districts.region_id')
-            ->select('schools.id','schools.name','schools.code','districts.name as district_name','districts.id as district_id','regions.name as region_name','regions.id as region_id')
+            ->select('schools.id','schools.name','schools.code','schools.level','districts.name as district_name','districts.id as district_id','regions.name as region_name','regions.id as region_id')
             ->orderBy('regions.name')->orderBy('districts.name')->orderBy('schools.name');
         if ($regionId) { $q->where('regions.id', $regionId); }
         if ($districtId) { $q->where('districts.id', $districtId); }
@@ -762,18 +762,20 @@ Route::middleware([])->group(function () {
             'district_id' => 'required|exists:districts,id',
             'name' => 'required|string|max:160',
             'code' => 'nullable|string|max:40',
+            'level' => 'required|string|in:primary,secondary,other',
         ]);
         $id = DB::table('schools')->insertGetId([
             'district_id' => $data['district_id'],
             'name' => $data['name'],
             'code' => $data['code'] ?? null,
+            'level' => $data['level'],
             'created_at' => now(), 'updated_at' => now(),
         ]);
         $row = DB::table('schools')
             ->join('districts','districts.id','=','schools.district_id')
             ->join('regions','regions.id','=','districts.region_id')
             ->where('schools.id',$id)
-            ->select('schools.id','schools.name','schools.code','districts.name as district_name','districts.id as district_id','regions.name as region_name','regions.id as region_id')
+            ->select('schools.id','schools.name','schools.code','schools.level','districts.name as district_name','districts.id as district_id','regions.name as region_name','regions.id as region_id')
             ->first();
         return response()->json($row, 201);
     })->name('api.admin.schools.store');
@@ -785,6 +787,7 @@ Route::middleware([])->group(function () {
             'district_id' => 'sometimes|exists:districts,id',
             'name' => 'required|string|max:160',
             'code' => 'nullable|string|max:40',
+            'level' => 'sometimes|string|in:primary,secondary,other',
         ]);
         $exists = DB::table('schools')->where('id', $id)->exists();
         abort_unless($exists, 404);
@@ -792,6 +795,7 @@ Route::middleware([])->group(function () {
             'district_id' => $data['district_id'] ?? DB::raw('district_id'),
             'name' => $data['name'],
             'code' => $data['code'] ?? null,
+            'level' => $data['level'] ?? DB::raw('level'),
             'updated_at' => now(),
         ]);
         $row = DB::table('schools')

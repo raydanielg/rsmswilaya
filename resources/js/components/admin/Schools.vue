@@ -35,6 +35,7 @@
             <tr>
               <th class="px-4 py-2">School</th>
               <th class="px-4 py-2">Code</th>
+              <th class="px-4 py-2">Level</th>
               <th class="px-4 py-2">Council</th>
               <th class="px-4 py-2">Region</th>
               <th class="px-4 py-2 text-right">Actions</th>
@@ -42,11 +43,12 @@
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td class="px-4 py-3 text-sm text-gray-500" colspan="5">Loading schools…</td>
+              <td class="px-4 py-3 text-sm text-gray-500" colspan="6">Loading schools…</td>
             </tr>
             <tr v-for="(s, idx) in filteredSchools" :key="s.id" :class="[idx % 2 ? 'bg-gray-50' : 'bg-white', 'hover:bg-gray-100']">
               <td class="px-4 py-2 text-gray-900 font-medium">{{ s.name }}</td>
               <td class="px-4 py-2 text-sm">{{ s.code || '—' }}</td>
+              <td class="px-4 py-2 text-sm capitalize">{{ s.level }}</td>
               <td class="px-4 py-2 text-sm">{{ s.district_name }}</td>
               <td class="px-4 py-2 text-sm">{{ s.region_name }}</td>
               <td class="px-4 py-2 text-right">
@@ -97,6 +99,14 @@
           <div>
             <label class="block text-sm font-medium mb-1">School code (optional)</label>
             <input v-model="addForm.code" type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="S1234" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Level / Exam type</label>
+            <select v-model="addForm.level" required class="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50">
+              <option value="secondary">Secondary (CSEE, ACSEE, FTNA)</option>
+              <option value="primary">Primary (PSLE, SFNA)</option>
+              <option value="other">Other</option>
+            </select>
             <div v-if="errorAdd" class="text-sm text-red-600 mt-1">{{ errorAdd }}</div>
           </div>
           <div class="flex justify-end gap-3">
@@ -175,6 +185,14 @@
           <div>
             <label class="block text-sm font-medium mb-1">School code (optional)</label>
             <input v-model="editForm.code" type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1">Level / Exam type</label>
+            <select v-model="editForm.level" class="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50">
+              <option value="secondary">Secondary (CSEE, ACSEE, FTNA)</option>
+              <option value="primary">Primary (PSLE, SFNA)</option>
+              <option value="other">Other</option>
+            </select>
             <div v-if="errorEdit" class="text-sm text-red-600 mt-1">{{ errorEdit }}</div>
           </div>
           <div class="flex justify-end gap-3">
@@ -212,7 +230,7 @@ const loading = ref(true)
 const search = ref('')
 
 const openAdd = ref(false)
-const addForm = ref({ region_id: '', district_id: '', name: '', code: '' })
+const addForm = ref({ region_id: '', district_id: '', name: '', code: '', level: 'secondary' })
 const addDistricts = ref([])
 const submittingAdd = ref(false)
 const errorAdd = ref('')
@@ -225,7 +243,7 @@ const submittingBulk = ref(false)
 const errorBulk = ref('')
 
 const openEdit = ref(false)
-const editForm = ref({ id:'', name:'', code:'', region_id:'', district_id:'' })
+const editForm = ref({ id:'', name:'', code:'', level:'secondary', region_id:'', district_id:'' })
 const editDistricts = ref([])
 const submittingEdit = ref(false)
 const errorEdit = ref('')
@@ -269,7 +287,7 @@ async function onRegionChange(){
   await fetchSchools()
 }
 
-function closeAdd(){ openAdd.value = false; addForm.value = { region_id: filters.value.region || '', district_id: filters.value.district || '', name: '', code: '' }; addDistricts.value = []; errorAdd.value='' }
+function closeAdd(){ openAdd.value = false; addForm.value = { region_id: filters.value.region || '', district_id: filters.value.district || '', name: '', code: '', level: 'secondary' }; addDistricts.value = []; errorAdd.value='' }
 function closeBulk(){ openBulk.value = false; bulk.value = { region_id: filters.value.region || '', district_id: filters.value.district || '' }; bulkDistricts.value = []; errorBulk.value='' }
 
 async function loadAddDistricts(){
@@ -300,6 +318,7 @@ async function createSchool(){
       district_id: addForm.value.district_id,
       name: addForm.value.name,
       code: addForm.value.code || null,
+      level: addForm.value.level,
     })})
     if(res.status === 422){ const d = await res.json(); errorAdd.value = d?.message || 'Validation error'; return }
     if(!res.ok) throw new Error('save failed')
@@ -344,13 +363,14 @@ function openEditFor(s){
     id: String(s.id),
     name: s.name,
     code: s.code || '',
+    level: s.level || 'secondary',
     region_id: String(s.region_id),
     district_id: String(s.district_id),
   }
   loadEditDistricts()
   openEdit.value = true
 }
-function closeEdit(){ openEdit.value = false; editForm.value = { id:'', name:'', code:'', region_id:'', district_id:'' }; errorEdit.value='' }
+function closeEdit(){ openEdit.value = false; editForm.value = { id:'', name:'', code:'', level:'secondary', region_id:'', district_id:'' }; errorEdit.value='' }
 
 async function updateSchool(){
   submittingEdit.value = true; errorEdit.value=''
@@ -360,6 +380,7 @@ async function updateSchool(){
       district_id: editForm.value.district_id,
       name: editForm.value.name,
       code: editForm.value.code || null,
+      level: editForm.value.level,
     })})
     if(res.status === 422){ const d = await res.json(); errorEdit.value = d?.message || 'Validation error'; return }
     if(!res.ok) throw new Error('update failed')
