@@ -29,7 +29,11 @@
             @foreach($posts as $post)
               <article class="bg-white rounded-lg border border-[#ecebea] overflow-hidden shadow-sm hover:shadow transition">
                 <a href="/blogs/{{ $post['slug'] }}">
-                  <img src="{{ $post['image'] }}" alt="{{ $post['title'] }}" class="w-full h-56 object-cover" />
+                  @if(!empty($post['image']))
+                    <img src="{{ $post['image'] }}" alt="{{ $post['title'] }}" class="w-full h-56 object-cover" />
+                  @else
+                    <div class="w-full h-56 bg-[#f7f7f6] flex items-center justify-center text-[#6b6a67] text-sm">No image</div>
+                  @endif
                 </a>
                 <div class="p-5">
                   <div class="text-xs text-[#6b6a67]">{{ \Carbon\Carbon::parse($post['date'])->diffForHumans() }}</div>
@@ -73,7 +77,11 @@
               <ul class="space-y-3">
                 @foreach($latest as $p)
                   <li class="flex items-center gap-3">
-                    <img src="{{ $p['image'] }}" alt="{{ $p['title'] }}" class="h-12 w-16 object-cover rounded" />
+                    @if(!empty($p['image']))
+                      <img src="{{ $p['image'] }}" alt="{{ $p['title'] }}" class="h-12 w-16 object-cover rounded" />
+                    @else
+                      <div class="h-12 w-16 bg-[#f7f7f6] rounded flex items-center justify-center text-[10px] text-[#6b6a67]">No image</div>
+                    @endif
                     <div>
                       <a href="/blogs/{{ $p['slug'] }}" class="font-medium hover:underline">{{ $p['title'] }}</a>
                       <div class="text-xs text-[#6b6a67]">{{ \Carbon\Carbon::parse($p['date'])->format('M d, Y') }}</div>

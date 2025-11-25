@@ -1417,7 +1417,15 @@ Route::get('/api/blogs', function (Request $request) {
     $total = $q->count();
     $rows = $q->offset($offset)->limit($limit)->get();
     $items = $rows->map(function($p){
-        $img = $p->image_path ? Storage::url($p->image_path) : null;
+        $img = null;
+        if (!empty($p->image_path)) {
+            $path = (string)$p->image_path;
+            if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://') || str_starts_with($path, '/storage/')) {
+                $img = $path;
+            } else {
+                $img = Storage::url($path);
+            }
+        }
         return [
             'title'=>$p->title,
             'slug'=>$p->slug,
@@ -1434,7 +1442,15 @@ Route::get('/api/blogs', function (Request $request) {
 Route::get('/api/blogs/{slug}', function (string $slug) {
     $p = DB::table('blog_posts')->where('slug',$slug)->first();
     abort_unless($p, 404);
-    $img = $p->image_path ? Storage::url($p->image_path) : null;
+    $img = null;
+    if (!empty($p->image_path)) {
+        $path = (string)$p->image_path;
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://') || str_starts_with($path, '/storage/')) {
+            $img = $path;
+        } else {
+            $img = Storage::url($path);
+        }
+    }
     return response()->json([
         'title'=>$p->title,
         'slug'=>$p->slug,

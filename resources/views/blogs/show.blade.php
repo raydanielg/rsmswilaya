@@ -26,7 +26,11 @@
       <main class="px-4 md:px-8 py-8 flex-1">
         <div class="max-w-screen-xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
           <article class="lg:col-span-8">
-            <img src="{{ $post['image'] }}" alt="{{ $post['title'] }}" class="w-full h-72 object-cover rounded border border-[#ecebea]" />
+            @if(!empty($post['image']))
+              <img src="{{ $post['image'] }}" alt="{{ $post['title'] }}" class="w-full h-72 object-cover rounded border border-[#ecebea]" />
+            @else
+              <div class="w-full h-72 rounded border border-[#ecebea] bg-[#f7f7f6] flex items-center justify-center text-[#6b6a67] text-sm">No image</div>
+            @endif
             <div class="mt-4 text-xs text-[#6b6a67]">{{ \Carbon\Carbon::parse($post['date'])->format('M d, Y') }}</div>
             <h1 class="text-3xl font-bold mt-1">{{ $post['title'] }}</h1>
             <div class="prose max-w-none mt-4">
