@@ -102,6 +102,23 @@ Route::get('/api/status', function () {
     ]);
 })->name('api.status');
 
+// Public notifications API (for mobile)
+Route::get('/api/notifications', function () {
+    $now = now();
+    $rows = DB::table('notifications')
+        ->where(function($q) use ($now) {
+            $q->whereNull('starts_at')->orWhere('starts_at','<=',$now);
+        })
+        ->where(function($q) use ($now) {
+            $q->whereNull('ends_at')->orWhere('ends_at','>=',$now);
+        })
+        ->orderByDesc('starts_at')
+        ->orderByDesc('created_at')
+        ->limit(20)
+        ->get(['title','body','starts_at','ends_at','created_at']);
+    return response()->json($rows);
+})->name('api.notifications');
+
 // API: hero (site header/hero assets)
 Route::get('/api/hero', function () {
     $pairs = DB::table('site_settings')->pluck('value','key');
@@ -691,6 +708,33 @@ Route::middleware([])->group(function () {
         fclose($fh);
         return redirect()->route('admin.results.index')->with('status', "Bulk publish completed: $inserted inserted, $skipped skipped");
     })->name('admin.results.bulk');
+
+    // Admin: Notifications
+    Route::get('/admin/notifications', function () use ($ensureAdmin) {
+        $ensureAdmin();
+        $notifications = DB::table('notifications')->orderByDesc('created_at')->limit(100)->get();
+        return view('admin.notifications.index', compact('notifications'));
+    })->name('admin.notifications.index');
+
+    Route::post('/admin/notifications', function (Request $request) use ($ensureAdmin) {
+        $ensureAdmin();
+        $data = $request->validate([
+            'title' => 'required|string|max:255',
+            'body' => 'required|string',
+            'starts_at' => 'nullable|date',
+            'ends_at' => 'nullable|date|after_or_equal:starts_at',
+        ]);
+        $now = now();
+        DB::table('notifications')->insert([
+            'title' => $data['title'],
+            'body' => $data['body'],
+            'starts_at' => $data['starts_at'] ?? null,
+            'ends_at' => $data['ends_at'] ?? null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        return redirect()->route('admin.notifications.index')->with('status','Notification published');
+    })->name('admin.notifications.store');
 
     // Admin: Settings (General & Maintenance)
     Route::get('/admin/settings', function () use ($ensureAdmin) {
@@ -1740,14 +1784,9 @@ Route::get('/api/publications', function (Request $request) {
         if ($path) {
             if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
                 $url = $path; $isExternal = true;
-            } elseif (str_starts_with($path, '/storage/')) {
-                $url = url($path);
-            } elseif (str_starts_with($path, '/assets/')) {
-                $url = url($path);
-            } elseif (str_starts_with($path, 'assets/')) {
-                $url = url('/'.$path);
             } else {
-                $url = url(Storage::url($path));
+                // For internal files, always go through the download route to avoid direct /storage access issues
+                $url = route('publication.download', ['id' => $p->id]);
             }
         }
         return [
@@ -1931,7 +1970,8 @@ Route::get('/publications/{slug}', function (string $slug) {
         ->orderByDesc('published_at')->orderByDesc('created_at')->get();
     $docs = $rows->map(function ($r) {
         $isExternal = Str::startsWith($r->file_path, ['http://','https://','/http']);
-        $url = $isExternal ? $r->file_path : Storage::url($r->file_path);
+        // For internal files, always use the download route so we don't depend on direct /storage access
+        $url = $isExternal ? $r->file_path : route('publication.download', ['id' => $r->id]);
         $downloadUrl = $isExternal ? $r->file_path : route('publication.download', ['id' => $r->id]);
         return [
             'name' => $r->title,
