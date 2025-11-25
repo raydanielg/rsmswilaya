@@ -976,10 +976,16 @@ Route::middleware([])->group(function () {
     Route::get('/admin/regions', function () use ($ensureAdmin) {
         $ensureAdmin();
         $regions = DB::table('regions')
-            ->leftJoin('districts','districts.region_id','=','regions.id')
-            ->leftJoin('schools','schools.district_id','=','districts.id')
-            ->groupBy('regions.id','regions.name','regions.code')
-            ->select('regions.id','regions.name','regions.code', DB::raw('COUNT(schools.id) as schools_count'))
+            ->select(
+                'regions.id',
+                'regions.name',
+                'regions.code',
+                DB::raw('(
+                    SELECT COUNT(*) FROM schools s
+                    JOIN districts d ON d.id = s.district_id
+                    WHERE d.region_id = regions.id
+                ) as schools_count')
+            )
             ->orderBy('regions.name')
             ->get();
         return view('admin.regions.index', compact('regions'));
@@ -1005,10 +1011,16 @@ Route::middleware([])->group(function () {
     Route::get('/api/admin/regions', function () {
         if (!session('admin_authenticated')) abort(403);
         $regions = DB::table('regions')
-            ->leftJoin('districts','districts.region_id','=','regions.id')
-            ->leftJoin('schools','schools.district_id','=','districts.id')
-            ->groupBy('regions.id','regions.name','regions.code')
-            ->select('regions.id','regions.name','regions.code', DB::raw('COUNT(schools.id) as schools_count'))
+            ->select(
+                'regions.id',
+                'regions.name',
+                'regions.code',
+                DB::raw('(
+                    SELECT COUNT(*) FROM schools s
+                    JOIN districts d ON d.id = s.district_id
+                    WHERE d.region_id = regions.id
+                ) as schools_count')
+            )
             ->orderBy('regions.name')
             ->get();
         return response()->json($regions);
