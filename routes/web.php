@@ -19,15 +19,16 @@ Route::options('/{any}', function () {
     ]);
 })->where('any', '.*');
 
-// Redirect legacy/relative links ending with /results/<file>.pdf to /storage/results/<file>.pdf
-Route::get('{any}', function (Request $request, string $any) {
-    if (preg_match('#/results/([^/]+\.pdf)$#i', '/'.$any, $m)) {
-        $file = $m[1];
-        $url = Storage::url('results/'.$file);
-        return redirect($url, 302);
-    }
-    abort(404);
-})->where('any', '.*?/results/[^/]+\.pdf$');
+// Redirect legacy /results/...pdf URLs to the PDF viewer using the unified result-files route
+// Example: /results/csee/2025/mwanza/.../file.pdf -> /view/pdf?src=/result-files/results/csee/2025/.../file.pdf
+Route::get('/results/{path}', function (string $path) {
+    // Normalise any leading slashes or accidental storage/ prefix
+    $subPath = 'results/'.ltrim($path, '/');
+    $subPath = preg_replace('#^storage/#', '', $subPath);
+    $fileUrl = route('results.files.show', ['path' => $subPath]);
+    // Pass the raw URL to the viewer; it will be encoded on the frontend when needed
+    return redirect()->route('pdf.viewer', ['src' => $fileUrl]);
+})->where('path', '.+\.pdf$');
 
 Route::get('/', function () {
     return view('welcome');
@@ -38,10 +39,27 @@ Route::get('/result-files/{path}', function (string $path) {
     $path = ltrim($path, '/');
     // Normalize possible "storage/" prefix
     $path = preg_replace('#^storage/#','', $path);
-    if (!Storage::disk('public')->exists($path)) {
-        abort(404);
+    // Handle accidental duplicate "results/.../results/" segments like
+    // results/csee/2025/mwanza/nyamagana/results/file.pdf -> results/csee/2025/mwanza/nyamagana/file.pdf
+    $path = preg_replace('#^results/([^?]+?)/results/#', 'results/$1/', $path);
+
+    $disk = Storage::disk('public');
+    if (!$disk->exists($path)) {
+        // Fallback: many uploads store PDFs flat under results/ while DB paths
+        // may include nested folders. If so, use just the filename.
+        if (preg_match('#^results/.*/([^/]+\.pdf)$#', $path, $m)) {
+            $fallback = 'results/'.$m[1];
+            if ($disk->exists($fallback)) {
+                $path = $fallback;
+            } else {
+                abort(404);
+            }
+        } else {
+            abort(404);
+        }
     }
-    return Storage::disk('public')->response($path);
+
+    return $disk->response($path);
 })->where('path', '.*')->name('results.files.show');
 
 // Serve blog images safely from storage/app/public without relying on webserver symlink
@@ -228,20 +246,17 @@ Route::get('/api/results/school-docs', function (Request $request) {
         ->get();
     $types = [];
     foreach ($rows as $r) {
-        // normalize URL
+        // Normalize URL to align with /result-files/{path}
         $fileUrl = $r->file_url;
         $isExternal = Str::startsWith($fileUrl, ['http://','https://']);
         if ($isExternal) {
-            $parts = parse_url($fileUrl);
-            $host = $parts['host'] ?? '';
-            $path = $parts['path'] ?? '';
-            $sameHost = request()->getHost() === $host;
-            if ($sameHost && $path && !Str::startsWith($path, '/storage')) {
-                $fileUrl = ltrim($path, '/');
-                $isExternal = false;
-            }
+            $absUrl = $fileUrl;
+        } else {
+            // Strip any leading storage/ prefix, then route via result-files
+            $clean = preg_replace('#^/?storage/#','', $fileUrl);
+            $clean = ltrim($clean, '/');
+            $absUrl = route('results.files.show', ['path' => $clean]);
         }
-        $absUrl = $isExternal ? $fileUrl : Storage::url($fileUrl);
 
         $code = $r->type_code ?: $exam;
         $name = $r->type_name ?: $exam;
