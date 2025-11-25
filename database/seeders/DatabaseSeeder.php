@@ -31,9 +31,34 @@ class DatabaseSeeder extends Seeder
             ]);
         }
 
-        // Seed Mwanza regions and districts from JSON
+        // Seed regions and districts from JSON location files
         $this->call([
             MwanzaLocationsSeeder::class,
+            DarEsSalaamLocationsSeeder::class,
+            ArushaLocationsSeeder::class,
+            DodomaLocationsSeeder::class,
+            GeitaLocationsSeeder::class,
+            IringaLocationsSeeder::class,
+            KageraLocationsSeeder::class,
+            KataviLocationsSeeder::class,
+            KigomaLocationsSeeder::class,
+            KilimanjaroLocationsSeeder::class,
+            ManyaraLocationsSeeder::class,
+            LindiLocationsSeeder::class,
+            TangaLocationsSeeder::class,
+            TaboraLocationsSeeder::class,
+            SongweLocationsSeeder::class,
+            SingidaLocationsSeeder::class,
+            SimiyuLocationsSeeder::class,
+            ShinyangaLocationsSeeder::class,
+            RuvumaLocationsSeeder::class,
+            RukwaLocationsSeeder::class,
+            MtwaraLocationsSeeder::class,
+            PwaniLocationsSeeder::class,
+            NjombeLocationsSeeder::class,
+            MaraLocationsSeeder::class,
+            MbeyaLocationsSeeder::class,
+            MorogoroLocationsSeeder::class,
         ]);
     }
 }
