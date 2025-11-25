@@ -7,7 +7,6 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
- 
 
 // Global OPTIONS handler to avoid 405 on CORS preflight
 Route::options('/{any}', function () {
@@ -32,6 +31,16 @@ Route::get('{any}', function (Request $request, string $any) {
 Route::get('/', function () {
     return view('welcome');
 });
+
+// Serve blog images safely from storage/app/public without relying on webserver symlink
+Route::get('/blog-images/{path}', function (string $path) {
+    $path = ltrim($path, '/');
+    // allow nested paths like blog/..., blog_gallery/...
+    if (!Storage::disk('public')->exists($path)) {
+        abort(404);
+    }
+    return Storage::disk('public')->response($path);
+})->where('path', '.*')->name('blog.images.show');
 
 // Full-screen PDF viewer
 Route::get('/view/pdf', function (Request $request) {
@@ -1605,14 +1614,11 @@ Route::get('/api/blogs', function (Request $request) {
             $path = (string)$p->image_path;
             if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
                 $img = $path;
-            } elseif (str_starts_with($path, '/storage/')) {
-                $img = url($path);
-            } elseif (str_starts_with($path, '/assets/')) {
-                $img = url($path);
-            } elseif (str_starts_with($path, 'assets/')) {
-                $img = url('/'.$path);
             } else {
-                $img = url(Storage::url($path));
+                // normalize storage or relative paths to use blog-images route
+                $clean = preg_replace('#^/?storage/#','', $path);
+                $clean = ltrim($clean, '/');
+                $img = route('blog.images.show', ['path' => $clean]);
             }
         }
         return [
@@ -1636,14 +1642,10 @@ Route::get('/api/blogs/{slug}', function (string $slug) {
         $path = (string)$p->image_path;
         if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
             $img = $path;
-        } elseif (str_starts_with($path, '/storage/')) {
-            $img = url($path);
-        } elseif (str_starts_with($path, '/assets/')) {
-            $img = url($path);
-        } elseif (str_starts_with($path, 'assets/')) {
-            $img = url('/'.$path);
         } else {
-            $img = url(Storage::url($path));
+            $clean = preg_replace('#^/?storage/#','', $path);
+            $clean = ltrim($clean, '/');
+            $img = route('blog.images.show', ['path' => $clean]);
         }
     }
     return response()->json([
@@ -1824,14 +1826,10 @@ Route::get('/blogs', function (Request $request) {
                 $path = (string)$p->image_path;
                 if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
                     $img = $path;
-                } elseif (str_starts_with($path, '/storage/')) {
-                    $img = url($path);
-                } elseif (str_starts_with($path, '/assets/')) {
-                    $img = url($path);
-                } elseif (str_starts_with($path, 'assets/')) {
-                    $img = url('/'.$path);
                 } else {
-                    $img = url(Storage::url($path));
+                    $clean = preg_replace('#^/?storage/#','', $path);
+                    $clean = ltrim($clean, '/');
+                    $img = route('blog.images.show', ['path' => $clean]);
                 }
             }
             return [
