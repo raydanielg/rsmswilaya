@@ -26,6 +26,7 @@
                     <th class="px-4 py-2">Title</th>
                     <th class="px-4 py-2">Dates</th>
                     <th class="px-4 py-2">Location</th>
+                    <th class="px-4 py-2 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -34,6 +35,15 @@
                       <td class="px-4 py-2 text-[#0B6B3A] font-medium">{{ $ev->title }}</td>
                       <td class="px-4 py-2 text-sm text-[#6b6a67]">{{ \Carbon\Carbon::parse($ev->start_date)->format('M d, Y') }} @if($ev->end_date) - {{ \Carbon\Carbon::parse($ev->end_date)->format('M d, Y') }} @endif</td>
                       <td class="px-4 py-2 text-sm">{{ $ev->location }}</td>
+                      <td class="px-4 py-2 text-right text-sm">
+                        <div class="inline-flex items-center gap-2">
+                          <a href="{{ route('admin.events.edit', $ev->id) }}" class="px-3 py-1 rounded border border-[#e5e4e2] hover:bg-[#f3f3f2]">Edit</a>
+                          <form method="POST" action="{{ route('admin.events.delete', $ev->id) }}" onsubmit="return confirm('Delete this event?');">
+                            @csrf
+                            <button type="submit" class="px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700">Delete</button>
+                          </form>
+                        </div>
+                      </td>
                     </tr>
                   @endforeach
                 </tbody>

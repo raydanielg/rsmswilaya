@@ -1695,6 +1695,41 @@ Route::middleware([])->group(function () {
         ]);
         return redirect()->route('admin.events.index');
     })->name('admin.events.store');
+
+    Route::get('/admin/events/{id}/edit', function (int $id) use ($ensureAdmin) {
+        $ensureAdmin();
+        $event = DB::table('events')->where('id', $id)->first();
+        abort_unless($event, 404);
+        return view('admin.events.edit', compact('event'));
+    })->name('admin.events.edit');
+
+    Route::post('/admin/events/{id}', function (Request $request, int $id) use ($ensureAdmin) {
+        $ensureAdmin();
+        $event = DB::table('events')->where('id', $id)->first();
+        abort_unless($event, 404);
+        $data = $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'start_date' => 'required|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+            'location' => 'nullable|string|max:255',
+        ]);
+        DB::table('events')->where('id', $id)->update([
+            'title' => $data['title'],
+            'description' => $data['description'] ?? null,
+            'start_date' => $data['start_date'],
+            'end_date' => $data['end_date'] ?? null,
+            'location' => $data['location'] ?? null,
+            'updated_at' => now(),
+        ]);
+        return redirect()->route('admin.events.index');
+    })->name('admin.events.update');
+
+    Route::post('/admin/events/{id}/delete', function (int $id) use ($ensureAdmin) {
+        $ensureAdmin();
+        DB::table('events')->where('id', $id)->delete();
+        return redirect()->route('admin.events.index');
+    })->name('admin.events.delete');
 });
 // Publications (DB-backed)
 Route::get('/publications', function () {
