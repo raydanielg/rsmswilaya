@@ -996,13 +996,23 @@ Route::middleware([])->group(function () {
             }
         } else { rewind($handle); }
         while (($row = fgetcsv($handle)) !== false) {
-            $name = null; $code = null;
+            $name = null; $code = null; $level = 'secondary';
             if ($hasHeader) {
                 $name = trim($row[$map['name']] ?? '');
                 $code = isset($map['code']) ? trim($row[$map['code']] ?? '') : null;
+                if (isset($map['level'])) {
+                    $lvl = strtolower(trim($row[$map['level']] ?? ''));
+                    if (in_array($lvl, ['primary','secondary','other'], true)) {
+                        $level = $lvl;
+                    }
+                }
             } else {
                 $name = trim($row[0] ?? '');
                 $code = trim($row[1] ?? '');
+                $lvl = strtolower(trim($row[2] ?? ''));
+                if (in_array($lvl, ['primary','secondary','other'], true)) {
+                    $level = $lvl;
+                }
             }
             if (!$name) { $skipped++; continue; }
             try {
@@ -1010,6 +1020,7 @@ Route::middleware([])->group(function () {
                     'district_id' => $districtId,
                     'name' => $name,
                     'code' => $code ?: null,
+                    'level' => $level,
                     'created_at' => now(), 'updated_at' => now(),
                 ]);
                 $inserted++;
@@ -1024,13 +1035,12 @@ Route::middleware([])->group(function () {
     // Download CSV template
     Route::get('/admin/schools/template', function () {
         if (!session('admin_authenticated')) abort(403);
-        $csv = "name,code\n".
-               "Kibasila Secondary, S1234\n".
-               "Mchanganyiko Primary, P5678\n";
-        $filename = 'schools_template.csv';
+        $csv = "name,code,level\n".
+               "Kibasila Secondary,S1234,secondary\n".
+               "Kibasila Primary,P1234,primary\n";
         return response($csv, 200, [
             'Content-Type' => 'text/csv',
-            'Content-Disposition' => "attachment; filename=\"$filename\"",
+            'Content-Disposition' => 'attachment; filename="schools_template.csv"'
         ]);
     })->name('admin.schools.template');
 });

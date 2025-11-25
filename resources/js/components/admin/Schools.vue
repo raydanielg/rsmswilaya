@@ -143,7 +143,7 @@
           <div>
             <label class="block text-sm font-medium mb-1">CSV file</label>
             <input ref="fileInput" type="file" accept=".csv,.txt" required />
-            <p class="text-xs text-gray-500 mt-1">CSV columns: name, code (header row supported)</p>
+            <p class="text-xs text-gray-500 mt-1">CSV columns: <strong>name, code, level</strong> (header row supported). Region and council are taken from the selections above.</p>
             <a href="/admin/schools/template" class="text-xs text-primary-700 hover:underline">Download template</a>
             <div v-if="errorBulk" class="text-sm text-red-600 mt-1">{{ errorBulk }}</div>
           </div>
