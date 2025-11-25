@@ -251,9 +251,13 @@ Route::get('/api/results/school-docs', function (Request $request) {
     return response()->json(['types'=>$types]);
 })->name('api.results.school_docs');
 
-// API: exam types (list)
+// API: exam types (list) – only public NECTA exams
 Route::get('/api/exams/types', function () {
-    $types = DB::table('result_types')->orderBy('name')->get();
+    $publicCodes = ['SFNA','PSLE','FTNA','CSEE','ACSEE'];
+    $types = DB::table('result_types')
+        ->whereIn('code', $publicCodes)
+        ->orderBy('name')
+        ->get();
     $yearMap = DB::table('result_type_year')->get()->groupBy('result_type_id');
     $years = DB::table('result_years')->get()->keyBy('id');
     $data = $types->map(function($t) use ($yearMap, $years){
