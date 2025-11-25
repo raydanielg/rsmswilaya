@@ -7,22 +7,6 @@
     <meta name="admin-name" content="{{ session('admin_name') }}" />
     <title>New Blog Post • RSMS</title>
     @vite(['resources/css/app.css','resources/js/app.js'])
-    <script src="https://cdn.tiny.cloud/1/fpc3fvrq0vprkb5gnmmsriawyveh9a46jm8s2pc9al4bg2fm/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.min.css" />
-    <script>
-      document.addEventListener('DOMContentLoaded', function(){
-        tinymce.init({
-          selector: '#editor',
-          height: 500,
-          menubar: false,
-          plugins: 'lists link table code codesample image autoresize',
-          toolbar: 'undo redo | styles | bold italic underline | bullist numlist | link table image | codesample | removeformat | code',
-          branding: false,
-          promotion: false,
-          content_style: 'body{font-family:Inter,system-ui,sans-serif;font-size:14px} pre[class*=language-]{padding:12px;border-radius:6px;background:#f5f2f0} code{background:#f6f8fa;padding:2px 4px;border-radius:4px}',
-        });
-      });
-    </script>
   </head>
   <body class="bg-[#F7F7F6] text-[#1b1b18] min-h-screen w-full">
     <div id="app" class="w-full min-h-screen flex flex-col">
@@ -67,73 +51,15 @@
             </div>
             <div>
               <label class="block text-sm font-medium mb-1">Content</label>
-              <textarea id="editor" name="content" rows="10" class="w-full border border-[#e5e4e2] rounded px-3 py-2"></textarea>
-              <p class="text-xs text-[#6b6a67] mt-1">Tip: Use the "</>" button to insert code with syntax highlighting.</p>
+              <textarea name="content" rows="12" class="w-full border border-[#e5e4e2] rounded px-3 py-2" placeholder="Write your post content here..."></textarea>
             </div>
             <div>
               <label class="block text-sm font-medium mb-1">Cover image</label>
               <input type="file" name="image" accept="image/*" />
-              <div class="mt-2 text-xs text-gray-500">or Add from URL</div>
-              <input type="url" name="image_url" class="w-full border border-[#e5e4e2] rounded px-3 py-2 mt-1" placeholder="https://example.com/cover.jpg" />
-            </div>
-
-            <!-- Gallery -->
-            <div>
-              <label class="block text-sm font-medium mb-1">Gallery images</label>
-              <input type="file" name="gallery[]" accept="image/*" multiple />
             </div>
             <div>
               <label class="block text-sm font-medium mb-1">Published at (optional)</label>
               <input type="date" name="published_at" class="border border-[#e5e4e2] rounded px-3 py-2" />
-            </div>
-
-            <!-- Publish options -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label class="block text-sm font-medium mb-1">Status</label>
-                <div class="flex items-center gap-3 text-sm">
-                  <label class="inline-flex items-center gap-1"><input type="radio" name="status" value="published" checked /> Published</label>
-                  <label class="inline-flex items-center gap-1"><input type="radio" name="status" value="draft" /> Draft</label>
-                  <label class="inline-flex items-center gap-1"><input type="radio" name="status" value="pending" /> Pending</label>
-                </div>
-              </div>
-              <div>
-                <label class="block text-sm font-medium mb-1">Tags</label>
-                <input type="text" name="tags" class="w-full border border-[#e5e4e2] rounded px-3 py-2" placeholder="news, results, exams" />
-              </div>
-              <div class="flex items-end">
-                <label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="allow_comments" value="1" checked /> Allow comments</label>
-              </div>
-            </div>
-
-            <!-- SEO -->
-            <div class="mt-6 border border-gray-200 rounded-md">
-              <div class="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-                <div>
-                  <div class="text-sm font-semibold">Search Engine Optimize</div>
-                  <div class="text-xs text-gray-500">Setup meta title & description to help search engines discover your post</div>
-                </div>
-                <button type="button" id="toggleSeo" class="text-sm px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-100">Edit SEO meta</button>
-              </div>
-              <div id="seoBody" class="hidden p-4 space-y-4">
-                <div>
-                  <label class="block text-sm font-medium mb-1">SEO Title</label>
-                  <input type="text" name="seo_title" class="w-full border border-[#e5e4e2] rounded px-3 py-2" />
-                </div>
-                <div>
-                  <label class="block text-sm font-medium mb-1">SEO description</label>
-                  <textarea name="seo_description" rows="2" class="w-full border border-[#e5e4e2] rounded px-3 py-2"></textarea>
-                </div>
-                <div>
-                  <label class="block text-sm font-medium mb-1">SEO image</label>
-                  <input type="file" name="seo_image" accept="image/*" />
-                  <div class="mt-2 text-xs text-gray-500">or Add from URL</div>
-                  <input type="url" name="seo_image_url" class="w-full border border-[#e5e4e2] rounded px-3 py-2 mt-1" placeholder="https://example.com/seo-image.jpg" />
-                </div>
-                <div>
-                  <label class="inline-flex items-center gap-2 text-sm"><input type="checkbox" name="indexable" value="1" checked /> Index</label>
-                </div>
-              </div>
             </div>
             <div class="flex flex-wrap gap-3">
               <a href="{{ route('admin.blog.index') }}" class="px-4 py-2 rounded border">Cancel</a>

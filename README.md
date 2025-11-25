@@ -74,6 +74,7 @@ npm install
 3) Migrate & seed (optional seeds you add)
 ```bash
 php artisan migrate
+php artisan db:seed
 ```
 
 4) Storage link
@@ -88,6 +89,16 @@ npm run dev
 ```
 
 Now open `http://localhost:8000`.
+
+## Login Details
+
+- **URL**: `/login`
+- **Default admin credentials** are created by the database seeder.
+  - **Email**: `ADMIN_EMAIL` in `.env` (defaults to `admin@rsms.local`)
+  - **Password**: `ADMIN_PASSWORD` in `.env` (defaults to `ChangeThis123!`)
+- To generate the admin user, run: `php artisan db:seed`
+- After first login, navigate to Admin Users to add users or change the password.
+- For security, change the default password immediately in production.
 
 ---
 
