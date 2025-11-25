@@ -1780,19 +1780,22 @@ Route::get('/api/publications', function (Request $request) {
     $total = $q->count();
     $rows = $q->offset($offset)->limit($limit)->get();
     $items = $rows->map(function($p){
-        $url = null; $isExternal = false; $path = (string)($p->file_path ?? '');
+        $url = null; $download = null; $isExternal = false; $path = (string)($p->file_path ?? '');
         if ($path) {
             if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
-                $url = $path; $isExternal = true;
+                $url = $path; $download = $path; $isExternal = true;
             } else {
                 // For internal files, always go through the download route to avoid direct /storage access issues
                 $url = route('publication.download', ['id' => $p->id]);
+                $download = $url;
             }
         }
         return [
             'id' => $p->id,
             'title' => $p->title,
             'file_url' => $url,
+            'view_url' => $url,
+            'download' => $download,
             'file_size' => $p->file_size,
             'published_at' => optional($p->published_at)->toAtomString() ?? optional($p->created_at)->toAtomString(),
             'external' => $isExternal,

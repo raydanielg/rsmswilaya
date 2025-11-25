@@ -38,6 +38,9 @@
                   <a href="{{ $doc['url'] }}" class="flex-1 hover:underline text-[#0B6B3A] font-medium" target="_blank">{{ $doc['name'] }}</a>
                   <div class="hidden md:block w-32 text-right text-[#6b6a67]">{{ \Carbon\Carbon::parse($doc['date'])->format('M d, Y') }}</div>
                   <div class="hidden md:block w-24 text-right text-[#6b6a67]">{{ $doc['size'] }}</div>
+                  <a href="{{ $doc['url'] }}" target="_blank" class="text-[#0B6B3A] hover:text-[#095a31] mr-2" title="View">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12Z" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </a>
                   <a href="{{ $doc['download_url'] }}" download="{{ $doc['name'] }}" class="text-[#0B6B3A] hover:text-[#095a31]" title="Download">
                     <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 3v12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M8 11l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 21h16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
                   </a>
