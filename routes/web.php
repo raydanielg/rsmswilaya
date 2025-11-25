@@ -980,6 +980,7 @@ Route::middleware([])->group(function () {
             'file' => 'required|file|mimes:csv,txt',
         ]);
         $districtId = (int)$validated['district_id'];
+        $hasLevelColumn = Schema::hasColumn('schools', 'level');
         $file = $request->file('file')->getRealPath();
         $handle = fopen($file, 'r');
         if (!$handle) return response()->json(['message'=>'Failed to read file'], 422);
@@ -1016,13 +1017,17 @@ Route::middleware([])->group(function () {
             }
             if (!$name) { $skipped++; continue; }
             try {
-                DB::table('schools')->insert([
+                $payload = [
                     'district_id' => $districtId,
                     'name' => $name,
                     'code' => $code ?: null,
-                    'level' => $level,
-                    'created_at' => now(), 'updated_at' => now(),
-                ]);
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+                if ($hasLevelColumn) {
+                    $payload['level'] = $level;
+                }
+                DB::table('schools')->insert($payload);
                 $inserted++;
             } catch (\Throwable $e) {
                 $skipped++; $errors[] = $name;
