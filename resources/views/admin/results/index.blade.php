@@ -15,26 +15,41 @@
         <admin-sidebar :open="sidebarOpen" active="results"></admin-sidebar>
         <main class="flex-1 min-w-0 p-6 md:p-8">
           <div class="max-w-screen-lg mx-auto space-y-6">
-            <div class="flex items-center justify-between">
-              <h1 class="text-2xl font-semibold">Results</h1>
+            <div class="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <h1 class="text-2xl font-semibold">Results</h1>
+                <p class="text-sm text-[#6b6a67] mt-1">Manage exam result documents, types and years used in the public Results Center.</p>
+              </div>
               <div class="flex items-center gap-2">
                 <a href="/results-center" class="text-sm text-[#0B6B3A] hover:underline">View public Results Center →</a>
                 <button type="button" id="openResultsModal" class="px-3 py-2 rounded-lg text-white bg-primary-700 hover:bg-primary-800 text-sm">Upload Result</button>
                 <button type="button" id="openBulkModal" class="px-3 py-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-100 text-sm">Bulk Publish</button>
               </div>
+            </div>
+
+            <div class="flex items-center gap-3 text-sm border-b border-[#e3e2df] pb-1">
+              @php $currentTab = $tab ?? ''; @endphp
+              <a href="{{ route('admin.results.index') }}" class="px-3 py-1.5 rounded-full {{ $currentTab === '' ? 'bg-[#0B6B3A] text-white' : 'text-[#3f3e3b] hover:bg-[#f3f2f0]' }}">Recent uploads</a>
+              <a href="{{ route('admin.results.index', ['tab' => 'types']) }}" class="px-3 py-1.5 rounded-full {{ $currentTab === 'types' ? 'bg-[#0B6B3A] text-white' : 'text-[#3f3e3b] hover:bg-[#f3f2f0]' }}">Result types</a>
+              <a href="{{ route('admin.results.index', ['tab' => 'year']) }}" class="px-3 py-1.5 rounded-full {{ $currentTab === 'year' ? 'bg-[#0B6B3A] text-white' : 'text-[#3f3e3b] hover:bg-[#f3f2f0]' }}">Years</a>
+            </div>
+
             @if((($tab ?? '') !== 'types') && (($tab ?? '') !== 'year'))
               <div class="bg-white rounded-md border border-[#ecebea] p-5">
                 <div class="flex items-center justify-between mb-3">
-                  <div class="font-medium">Recent Uploads</div>
+                  <div>
+                    <div class="font-medium">Recent uploads</div>
+                    <p class="text-xs text-[#6b6a67]">Showing the most recent 50 documents. Use Bulk Publish to quickly toggle visibility.</p>
+                  </div>
                   <div class="flex items-center gap-2">
                     <form method="POST" action="{{ route('admin.results.bulk_publish') }}" class="flex items-center gap-2" id="bulkPublishForm">
                       @csrf
                       <input type="hidden" name="action" id="bulkActionInput" value="publish" />
                       <input type="hidden" name="ids[]" value="" id="bulkIdsPlaceholder" />
                       <button type="button" data-action="publish" class="px-3 py-1.5 rounded bg-[#0B6B3A] text-white text-xs hover:bg-[#095a31]">Publish Selected</button>
-                      <button type="button" data-action="unpublish" class="px-3 py-1.5 rounded border text-xs hover:bg-gray-50">Unpublish Selected</button>
+                      <button type="button" data-action="unpublish" class="px-3 py-1.5 rounded border text-xs hover:bg-gray-50">Unpublish selected</button>
                     </form>
-                    <div class="text-xs text-gray-500">Last 25</div>
+                    <div class="text-xs text-gray-500">Last 50 uploads</div>
                   </div>
                 </div>
                 <div class="overflow-x-auto">
