@@ -692,9 +692,23 @@ Route::middleware([])->group(function () {
     Route::get('/admin/publications', function () use ($ensureAdmin) {
         $ensureAdmin();
         $folders = DB::table('publication_folders')
-            ->select('publication_folders.id','publication_folders.name','publication_folders.slug')
-            ->selectSub(DB::raw('(select count(*) from publications where publications.folder_id = publication_folders.id)'), 'docs_count')
-            ->orderBy('publication_folders.name')
+            ->leftJoin('publications','publications.folder_id','=','publication_folders.id')
+            ->select(
+                'publication_folders.id',
+                'publication_folders.name',
+                'publication_folders.slug',
+                'publication_folders.created_at',
+                'publication_folders.updated_at',
+                DB::raw('COUNT(publications.id) as docs_count')
+            )
+            ->groupBy(
+                'publication_folders.id',
+                'publication_folders.name',
+                'publication_folders.slug',
+                'publication_folders.created_at',
+                'publication_folders.updated_at'
+            )
+            ->orderBy('publication_folders.name','asc')
             ->get();
         return view('admin.publications.index-admin', compact('folders'));
     })->name('admin.pub.index');
