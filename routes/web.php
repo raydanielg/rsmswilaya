@@ -1318,24 +1318,74 @@ Route::get('/api/faq', function () {
     return response()->json($items);
 })->name('api.faq');
 
-// API: Contacts
+// API: Contacts (DB-backed)
 Route::get('/api/contacts', function () {
-    $pairs = DB::table('site_settings')->pluck('value','key');
-    $email = $pairs['contact.email'] ?? ($pairs['admin.email'] ?? '');
-    $phone = $pairs['contact.phone'] ?? '';
-    $address = $pairs['contact.address'] ?? '';
-    $hours = $pairs['contact.hours'] ?? '';
-    $socialRaw = $pairs['contact.socials'] ?? '[]';
+    $row = DB::table('contact_infos')->orderByDesc('updated_at')->orderByDesc('id')->first();
     $socials = [];
-    try { $tmp = json_decode($socialRaw, true); if (is_array($tmp)) { $socials = $tmp; } } catch (\Throwable $e) {}
+    if ($row && !empty($row->socials)) {
+        $decoded = json_decode($row->socials, true);
+        if (is_array($decoded)) { $socials = $decoded; }
+    }
     return response()->json([
-        'email' => $email,
-        'phone' => $phone,
-        'address' => $address,
-        'hours' => $hours,
+        'email' => $row->email ?? '',
+        'phone' => $row->phone ?? '',
+        'address' => $row->address ?? '',
+        'hours' => $row->hours ?? '',
         'socials' => $socials,
     ]);
 })->name('api.contacts');
+
+// API: Contact form submission
+Route::post('/api/contacts/messages', function (Request $request) {
+    $data = $request->validate([
+        'name' => 'required|string|max:160',
+        'email' => 'required|email:rfc,dns|max:255',
+        'subject' => 'nullable|string|max:255',
+        'message' => 'required|string|max:5000',
+    ]);
+    DB::table('contact_messages')->insert([
+        'name' => $data['name'],
+        'email' => $data['email'],
+        'subject' => $data['subject'] ?? null,
+        'message' => $data['message'],
+        'ip_address' => $request->ip(),
+        'user_agent' => substr((string)$request->userAgent(), 0, 500),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    return response()->json(['success' => true], 201);
+})->name('api.contacts.messages.store');
+
+// API (Admin): Upsert contact info
+Route::post('/api/admin/contacts', function (Request $request) {
+    if (!session('admin_authenticated')) abort(403);
+    $data = $request->validate([
+        'email' => 'nullable|email:rfc,dns|max:255',
+        'phone' => 'nullable|string|max:255',
+        'address' => 'nullable|string|max:255',
+        'hours' => 'nullable|string|max:255',
+        'socials' => 'nullable|array',
+        'socials.*.name' => 'required_with:socials|string|max:80',
+        'socials.*.url' => 'required_with:socials|url|max:500',
+    ]);
+    $payload = [
+        'email' => $data['email'] ?? null,
+        'phone' => $data['phone'] ?? null,
+        'address' => $data['address'] ?? null,
+        'hours' => $data['hours'] ?? null,
+        'socials' => isset($data['socials']) ? json_encode(array_values($data['socials'])) : null,
+        'updated_at' => now(),
+    ];
+    // Keep a single latest row: update if exists; otherwise create
+    $existing = DB::table('contact_infos')->orderByDesc('id')->first();
+    if ($existing) {
+        DB::table('contact_infos')->where('id', $existing->id)->update($payload);
+    } else {
+        $payload['created_at'] = now();
+        DB::table('contact_infos')->insert($payload);
+    }
+    return response()->json(['success' => true]);
+})->name('api.admin.contacts.upsert');
 
 // API: calendar grid + events for a given month (YYYY-MM)
 Route::get('/api/calendar', function (Request $request) {
@@ -1420,10 +1470,12 @@ Route::get('/api/blogs', function (Request $request) {
         $img = null;
         if (!empty($p->image_path)) {
             $path = (string)$p->image_path;
-            if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://') || str_starts_with($path, '/storage/')) {
+            if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
                 $img = $path;
+            } elseif (str_starts_with($path, '/storage/')) {
+                $img = url($path);
             } else {
-                $img = Storage::url($path);
+                $img = url(Storage::url($path));
             }
         }
         return [
@@ -1445,10 +1497,12 @@ Route::get('/api/blogs/{slug}', function (string $slug) {
     $img = null;
     if (!empty($p->image_path)) {
         $path = (string)$p->image_path;
-        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://') || str_starts_with($path, '/storage/')) {
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
             $img = $path;
+        } elseif (str_starts_with($path, '/storage/')) {
+            $img = url($path);
         } else {
-            $img = Storage::url($path);
+            $img = url(Storage::url($path));
         }
     }
     return response()->json([
@@ -1624,10 +1678,21 @@ Route::get('/blogs', function (Request $request) {
         ->limit(12)
         ->get()
         ->map(function ($p) {
+            $img = null;
+            if (!empty($p->image_path)) {
+                $path = (string)$p->image_path;
+                if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+                    $img = $path;
+                } elseif (str_starts_with($path, '/storage/')) {
+                    $img = url($path);
+                } else {
+                    $img = url(Storage::url($path));
+                }
+            }
             return [
                 'slug' => $p->slug,
                 'title' => $p->title,
-                'image' => $p->image_path ? Storage::url($p->image_path) : null,
+                'image' => $img,
                 'date' => optional($p->published_at)->format('Y-m-d') ?? optional($p->created_at)->format('Y-m-d'),
                 'excerpt' => $p->excerpt,
             ];
@@ -1639,10 +1704,19 @@ Route::get('/blogs', function (Request $request) {
         ->orderBy('blog_categories.name')
         ->get();
     $latest = DB::table('blog_posts')->orderByDesc('published_at')->orderByDesc('created_at')->limit(5)->get()->map(function ($p) {
+        $img = null;
+        if (!empty($p->image_path)) {
+            $path = (string)$p->image_path;
+            if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://') || str_starts_with($path, '/storage/')) {
+                $img = $path;
+            } else {
+                $img = Storage::url($path);
+            }
+        }
         return [
             'slug' => $p->slug,
             'title' => $p->title,
-            'image' => $p->image_path ? Storage::url($p->image_path) : null,
+            'image' => $img,
             'date' => optional($p->published_at)->format('Y-m-d') ?? optional($p->created_at)->format('Y-m-d'),
         ];
     });
@@ -1652,10 +1726,19 @@ Route::get('/blogs', function (Request $request) {
 Route::get('/blogs/{slug}', function (string $slug) {
     $p = DB::table('blog_posts')->where('slug',$slug)->first();
     abort_unless($p, 404);
+    $img = null;
+    if (!empty($p->image_path)) {
+        $path = (string)$p->image_path;
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://') || str_starts_with($path, '/storage/')) {
+            $img = $path;
+        } else {
+            $img = Storage::url($path);
+        }
+    }
     $post = [
         'slug' => $p->slug,
         'title' => $p->title,
-        'image' => $p->image_path ? Storage::url($p->image_path) : null,
+        'image' => $img,
         'date' => optional($p->published_at)->format('Y-m-d') ?? optional($p->created_at)->format('Y-m-d'),
         'content' => $p->content,
         'category' => optional(DB::table('blog_categories')->where('id',$p->category_id)->first())->name,
