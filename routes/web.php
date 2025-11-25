@@ -313,11 +313,97 @@ Route::middleware([])->group(function () {
                 'regions.name as region_name','districts.name as district_name','schools.name as school_name'
             )
             ->orderByDesc('result_documents.created_at')
-            ->limit(25)
+            ->limit(50)
             ->get();
         $tab = $request->query('tab');
         return view('admin.results.index', compact('exams','regions','years','types','typeYears','recent','tab'));
     })->name('admin.results.index');
+
+    // Public API: list uploaded result documents with filters
+    Route::get('/api/results/documents', function (Request $request) {
+        $exam = strtoupper((string)$request->query('exam', ''));
+        $year = $request->query('year');
+        $regionId = $request->query('region_id');
+        $districtId = $request->query('district_id');
+        $schoolId = $request->query('school_id');
+        $limit = min(max((int)$request->query('limit', 50), 1), 200);
+        $page = max((int)$request->query('page', 1), 1);
+        $offset = ($page - 1) * $limit;
+
+        $base = DB::table('result_documents')
+            ->leftJoin('result_types','result_types.id','=','result_documents.result_type_id')
+            ->leftJoin('regions','regions.id','=','result_documents.region_id')
+            ->leftJoin('districts','districts.id','=','result_documents.district_id')
+            ->leftJoin('schools','schools.id','=','result_documents.school_id');
+
+        if ($exam) $base->where('result_documents.exam', $exam);
+        if ($year) $base->where('result_documents.year', (int)$year);
+        if ($regionId) $base->where('result_documents.region_id', (int)$regionId);
+        if ($districtId) $base->where('result_documents.district_id', (int)$districtId);
+        if ($schoolId) $base->where('result_documents.school_id', (int)$schoolId);
+
+        $total = (clone $base)->count();
+
+        $rows = $base
+            ->orderByDesc('result_documents.year')
+            ->orderByDesc('result_documents.created_at')
+            ->offset($offset)
+            ->limit($limit)
+            ->get([
+                'result_documents.id',
+                'result_documents.exam',
+                'result_documents.year',
+                'result_documents.file_url',
+                'result_documents.created_at',
+                'result_documents.updated_at',
+                'result_documents.region_id',
+                'result_documents.district_id',
+                'result_documents.school_id',
+                'regions.name as region_name',
+                'districts.name as district_name',
+                'schools.name as school_name',
+                'schools.code as school_code',
+                'result_types.code as type_code',
+                'result_types.name as type_name',
+            ]);
+
+        $items = $rows->map(function($r){
+            $fileUrl = $r->file_url;
+            $isExternal = Str::startsWith($fileUrl, ['http://','https://']);
+            if ($isExternal) {
+                $abs = $fileUrl;
+            } else {
+                $abs = Str::startsWith($fileUrl, ['/storage','storage/'])
+                    ? (Str::startsWith($fileUrl, '/') ? $fileUrl : '/'.$fileUrl)
+                    : Storage::url($fileUrl);
+            }
+            return [
+                'id' => $r->id,
+                'exam' => $r->exam,
+                'year' => $r->year,
+                'type_code' => $r->type_code,
+                'type_name' => $r->type_name,
+                'region_id' => $r->region_id,
+                'region_name' => $r->region_name,
+                'district_id' => $r->district_id,
+                'district_name' => $r->district_name,
+                'school_id' => $r->school_id,
+                'school_name' => $r->school_name,
+                'school_code' => $r->school_code,
+                'file_url' => $r->file_url,
+                'url' => $abs,
+                'created_at' => $r->created_at,
+                'updated_at' => $r->updated_at,
+            ];
+        });
+
+        return response()->json([
+            'items' => $items,
+            'total' => $total,
+            'page' => $page,
+            'limit' => $limit,
+        ]);
+    })->name('api.results.documents');
 
     Route::post('/admin/results', function (Request $request) use ($ensureAdmin) {
         $ensureAdmin();
