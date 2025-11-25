@@ -33,6 +33,17 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+// Serve result documents safely from storage/app/public/results
+Route::get('/result-files/{path}', function (string $path) {
+    $path = ltrim($path, '/');
+    // Normalize possible "storage/" prefix
+    $path = preg_replace('#^storage/#','', $path);
+    if (!Storage::disk('public')->exists($path)) {
+        abort(404);
+    }
+    return Storage::disk('public')->response($path);
+})->where('path', '.*')->name('results.files.show');
+
 // Serve blog images safely from storage/app/public without relying on webserver symlink
 Route::get('/blog-images/{path}', function (string $path) {
     $path = ltrim($path, '/');
@@ -158,19 +169,12 @@ Route::get('/api/results/district-schools', function (Request $request) {
         $fileUrl = $r->file_url;
         $isExternal = Str::startsWith($fileUrl, ['http://','https://']);
         if ($isExternal) {
-            $parts = parse_url($fileUrl);
-            $host = $parts['host'] ?? '';
-            $path = $parts['path'] ?? '';
-            $sameHost = request()->getHost() === $host;
-            if ($sameHost && $path && !Str::startsWith($path, '/storage')) {
-                $fileUrl = ltrim($path, '/');
-                $isExternal = false;
-            }
-        }
-        if ($isExternal) {
             $absUrl = $fileUrl;
         } else {
-            $absUrl = Str::startsWith($fileUrl, ['/storage', 'storage/']) ? (Str::startsWith($fileUrl, '/') ? $fileUrl : '/'.$fileUrl) : Storage::url($fileUrl);
+            // strip any leading storage/ prefix, then route via result-files
+            $clean = preg_replace('#^/?storage/#','', $fileUrl);
+            $clean = ltrim($clean, '/');
+            $absUrl = route('results.files.show', ['path' => $clean]);
         }
 
         $code = $r->type_code ?: $exam;
@@ -1342,28 +1346,16 @@ Route::get('/api/results/list', function (Request $request) {
         $fileUrl = $r->file_url;
         $isExternal = Str::startsWith($fileUrl, ['http://','https://']);
         if ($isExternal) {
-            $parts = parse_url($fileUrl);
-            $host = $parts['host'] ?? '';
-            $path = $parts['path'] ?? '';
-            $sameHost = request()->getHost() === $host;
-            if ($sameHost && $path && !Str::startsWith($path, '/storage')) {
-                $fileUrl = ltrim($path, '/');
-                $isExternal = false;
-            }
-        }
-        if ($isExternal) {
-            $url = $fileUrl;
+            $absUrl = $fileUrl;
         } else {
-            // If already a storage path, keep as-is
-            if (Str::startsWith($fileUrl, ['/storage', 'storage/'])) {
-                $url = Str::startsWith($fileUrl, '/') ? $fileUrl : '/'.$fileUrl;
-            } else {
-                $url = Storage::url($fileUrl);
-            }
+            $clean = preg_replace('#^/?storage/#','', $fileUrl);
+            $clean = ltrim($clean, '/');
+            $absUrl = route('results.files.show', ['path' => $clean]);
         }
         $title = $r->exam.' '.$r->year;
         $grouped[$r->year][] = [
             'title' => $title,
+            'url' => $absUrl,
             'url' => $url,
             'year' => $r->year,
             'created_at' => $r->created_at,

@@ -75,16 +75,12 @@
                           $fileUrl = $row->file_url;
                           $isExternal = \Illuminate\Support\Str::startsWith($fileUrl, ['http://','https://']);
                           if ($isExternal) {
-                            $parts = parse_url($fileUrl);
-                            $host = $parts['host'] ?? '';
-                            $path = $parts['path'] ?? '';
-                            $sameHost = request()->getHost() === $host;
-                            if ($sameHost && $path && !\Illuminate\Support\Str::startsWith($path, '/storage')) {
-                              $fileUrl = ltrim($path, '/');
-                              $isExternal = false;
-                            }
+                            $docUrl = $fileUrl;
+                          } else {
+                            $clean = preg_replace('#^/?storage/#','', $fileUrl);
+                            $clean = ltrim($clean, '/');
+                            $docUrl = route('results.files.show', ['path' => $clean]);
                           }
-                          $docUrl = $isExternal ? $fileUrl : \Illuminate\Support\Facades\Storage::url($fileUrl);
                         @endphp
                         <tr class="hover:bg-gray-50">
                           <td class="px-3 py-2"><input type="checkbox" class="resultRowCheckbox" value="{{ $row->id }}" /></td>
