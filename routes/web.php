@@ -2100,6 +2100,25 @@ Route::middleware([])->group(function () {
         return redirect()->route('admin.pub.folder', ['id' => $validated['folder_id']])
             ->with('success', 'Document uploaded successfully!');
     })->name('admin.pub.store');
+
+    Route::post('/admin/publications/{id}/delete', function (int $id) use ($ensureAdmin) {
+        $ensureAdmin();
+        $publication = DB::table('publications')->where('id', $id)->first();
+        abort_unless($publication, 404);
+        $folderId = $publication->folder_id;
+        // Delete stored file if it is a local storage path
+        if (!empty($publication->file_path) && !Str::startsWith($publication->file_path, ['http://', 'https://'])) {
+            $path = $publication->file_path;
+            // Normalise any leading storage/ prefix
+            $path = preg_replace('#^/?storage/#','', $path);
+            if (Storage::disk('public')->exists($path)) {
+                Storage::disk('public')->delete($path);
+            }
+        }
+        DB::table('publications')->where('id', $id)->delete();
+        return redirect()->route('admin.pub.folder', ['id' => $folderId])
+            ->with('success', 'Document deleted successfully!');
+    })->name('admin.pub.delete');
 });
 
 // Blogs (DB-backed)

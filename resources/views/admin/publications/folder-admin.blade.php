@@ -52,7 +52,11 @@
                           @php($url = \Illuminate\Support\Str::startsWith($d->file_path, ['http://','https://']) ? $d->file_path : \Illuminate\Support\Facades\Storage::url($d->file_path))
                           @php($downloadUrl = \Illuminate\Support\Str::startsWith($d->file_path, ['http://','https://']) ? $d->file_path : route('publication.download', ['id' => $d->id]))
                           <a href="{{ $url }}" target="_blank" class="text-sm px-3 py-1.5 rounded-lg border border-gray-200 bg-white hover:bg-gray-100 mr-2">View</a>
-                          <a href="{{ $downloadUrl }}" download="{{ $d->title }}" class="text-sm px-3 py-1.5 rounded-lg text-white bg-primary-700 hover:bg-primary-800">Download</a>
+                          <a href="{{ $downloadUrl }}" download="{{ $d->title }}" class="text-sm px-3 py-1.5 rounded-lg text-white bg-primary-700 hover:bg-primary-800 mr-2">Download</a>
+                          <form action="{{ route('admin.pub.delete', ['id' => $d->id]) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this document?');">
+                            @csrf
+                            <button type="submit" class="text-sm px-3 py-1.5 rounded-lg border border-red-200 text-red-700 bg-white hover:bg-red-50">Delete</button>
+                          </form>
                         </td>
                       </tr>
                     @empty
