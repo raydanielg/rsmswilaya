@@ -251,11 +251,12 @@ Route::get('/api/results/school-docs', function (Request $request) {
     return response()->json(['types'=>$types]);
 })->name('api.results.school_docs');
 
-// API: exam types (list) – only public NECTA exams
+// API: exam types (list) - only real public exams, not class types
 Route::get('/api/exams/types', function () {
-    $publicCodes = ['SFNA','PSLE','FTNA','CSEE','ACSEE'];
+    $allowed = ['SFNA','PSLE','FTNA','CSEE','ACSEE'];
+
     $types = DB::table('result_types')
-        ->whereIn('code', $publicCodes)
+        ->whereIn('code', $allowed)
         ->orderBy('name')
         ->get();
     $yearMap = DB::table('result_type_year')->get()->groupBy('result_type_id');
@@ -275,9 +276,13 @@ Route::get('/api/exams/types', function () {
     return response()->json($data);
 })->name('api.exams.types');
 
-// API: single exam type detail by code
+// API: single exam type detail by code (only for allowed public exams)
 Route::get('/api/exams/{code}', function (string $code) {
-    $type = DB::table('result_types')->whereRaw('upper(code)=?', [strtoupper($code)])->first();
+    $allowed = ['SFNA','PSLE','FTNA','CSEE','ACSEE'];
+    $upper = strtoupper($code);
+    abort_unless(in_array($upper, $allowed, true), 404);
+
+    $type = DB::table('result_types')->whereRaw('upper(code)=?', [$upper])->first();
     abort_unless($type, 404);
     $yearIds = DB::table('result_type_year')->where('result_type_id', $type->id)->pluck('result_year_id');
     $yearList = DB::table('result_years')->whereIn('id', $yearIds)->orderByDesc('year')->pluck('year');
