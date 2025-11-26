@@ -186,6 +186,8 @@ Route::get('/api/devices/status', function (Request $request) {
     ]);
 })->name('api.devices.status');
 
+Route::post('/api/devices/fcm-token', [DeviceTokenController::class, 'store'])->name('api.devices.fcm_token');
+
 // Public notifications API (for mobile)
 Route::get('/api/notifications', function () {
     $now = now();
