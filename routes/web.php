@@ -119,7 +119,7 @@ Route::get('/api/notifications', function () {
     return response()->json($rows);
 })->name('api.notifications');
 
-// Web notifications endpoint (HTML/JSON-compatible)
+// Web notifications endpoint (JSON only)
 Route::get('/notifications', function () {
     $now = now();
     $rows = DB::table('notifications')
@@ -134,11 +134,7 @@ Route::get('/notifications', function () {
         ->limit(20)
         ->get(['title','body','starts_at','ends_at','created_at']);
 
-    if (request()->wantsJson()) {
-        return response()->json($rows);
-    }
-
-    return view('notifications.index', ['notifications' => $rows]);
+    return response()->json($rows);
 })->name('notifications.index');
 
 // API: hero (site header/hero assets)
