@@ -129,6 +129,21 @@ Route::get('/notifications', function () {
     return response()->json($rows);
 })->name('notifications.index');
 
+// Web notifications count endpoint (JSON only) - number of currently active notifications
+Route::get('/notifications/count', function () {
+    $now = now();
+    $count = DB::table('notifications')
+        ->where(function($q) use ($now) {
+            $q->whereNull('starts_at')->orWhere('starts_at','<=',$now);
+        })
+        ->where(function($q) use ($now) {
+            $q->whereNull('ends_at')->orWhere('ends_at','>=',$now);
+        })
+        ->count();
+
+    return response()->json(['count' => $count]);
+})->name('notifications.count');
+
 // API: hero (site header/hero assets)
 Route::get('/api/hero', function () {
     $pairs = DB::table('site_settings')->pluck('value','key');
