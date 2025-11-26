@@ -102,6 +102,90 @@ Route::get('/api/status', function () {
     ]);
 })->name('api.status');
 
+// Public devices API (for mobile apps)
+Route::post('/api/devices/register', function (Request $request) {
+    $data = $request->validate([
+        'device_id' => 'required|string|max:190',
+        'name' => 'nullable|string|max:255',
+        'platform' => 'nullable|string|max:50', // android, ios, web, etc.
+        'model' => 'nullable|string|max:255',
+        'os_version' => 'nullable|string|max:100',
+        'app_version' => 'nullable|string|max:100',
+    ]);
+
+    $now = now();
+
+    $existing = DB::table('devices')->where('device_id', $data['device_id'])->first();
+    if ($existing) {
+        DB::table('devices')->where('id', $existing->id)->update([
+            'name' => $data['name'] ?? $existing->name,
+            'platform' => $data['platform'] ?? $existing->platform,
+            'model' => $data['model'] ?? $existing->model,
+            'os_version' => $data['os_version'] ?? $existing->os_version,
+            'app_version' => $data['app_version'] ?? $existing->app_version,
+            'last_seen_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $device = DB::table('devices')->where('id', $existing->id)->first();
+    } else {
+        $id = DB::table('devices')->insertGetId([
+            'device_id' => $data['device_id'],
+            'name' => $data['name'] ?? null,
+            'platform' => $data['platform'] ?? null,
+            'model' => $data['model'] ?? null,
+            'os_version' => $data['os_version'] ?? null,
+            'app_version' => $data['app_version'] ?? null,
+            'is_blocked' => false,
+            'maintenance_required' => false,
+            'update_required' => false,
+            'last_seen_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        $device = DB::table('devices')->where('id', $id)->first();
+    }
+
+    return response()->json([
+        'device_id' => $device->device_id,
+        'name' => $device->name,
+        'platform' => $device->platform,
+        'model' => $device->model,
+        'os_version' => $device->os_version,
+        'app_version' => $device->app_version,
+        'is_blocked' => (bool)$device->is_blocked,
+        'maintenance_required' => (bool)$device->maintenance_required,
+        'update_required' => (bool)$device->update_required,
+        'note' => $device->note,
+        'last_seen_at' => $device->last_seen_at,
+    ]);
+})->name('api.devices.register');
+
+// Simple device status check by device_id
+Route::get('/api/devices/status', function (Request $request) {
+    $deviceId = (string)$request->query('device_id');
+    if (!$deviceId) {
+        return response()->json(['error' => 'device_id is required'], 422);
+    }
+    $device = DB::table('devices')->where('device_id', $deviceId)->first();
+    if (!$device) {
+        return response()->json(['exists' => false]);
+    }
+    return response()->json([
+        'exists' => true,
+        'device_id' => $device->device_id,
+        'name' => $device->name,
+        'platform' => $device->platform,
+        'model' => $device->model,
+        'os_version' => $device->os_version,
+        'app_version' => $device->app_version,
+        'is_blocked' => (bool)$device->is_blocked,
+        'maintenance_required' => (bool)$device->maintenance_required,
+        'update_required' => (bool)$device->update_required,
+        'note' => $device->note,
+        'last_seen_at' => $device->last_seen_at,
+    ]);
+})->name('api.devices.status');
+
 // Public notifications API (for mobile)
 Route::get('/api/notifications', function () {
     $now = now();
@@ -758,6 +842,43 @@ Route::middleware([])->group(function () {
         ]);
         return redirect()->route('admin.notifications.index')->with('status','Notification published');
     })->name('admin.notifications.store');
+
+    // Admin: Devices management
+    Route::get('/admin/devices', function (Request $request) use ($ensureAdmin) {
+        $ensureAdmin();
+        $query = DB::table('devices');
+        if ($search = trim((string)$request->query('q',''))) {
+            $query->where(function($q) use ($search) {
+                $q->where('device_id','like','%'.$search.'%')
+                  ->orWhere('name','like','%'.$search.'%')
+                  ->orWhere('model','like','%'.$search.'%');
+            });
+        }
+        $devices = $query->orderByDesc('last_seen_at')->orderByDesc('created_at')->limit(200)->get();
+        return view('admin.devices.index', compact('devices'));
+    })->name('admin.devices.index');
+
+    Route::post('/admin/devices/{id}', function ($id, Request $request) use ($ensureAdmin) {
+        $ensureAdmin();
+        $data = $request->validate([
+            'is_blocked' => 'nullable|boolean',
+            'maintenance_required' => 'nullable|boolean',
+            'update_required' => 'nullable|boolean',
+            'note' => 'nullable|string',
+        ]);
+        $device = DB::table('devices')->where('id',$id)->first();
+        if (!$device) {
+            return redirect()->route('admin.devices.index')->with('status','Device not found');
+        }
+        DB::table('devices')->where('id',$id)->update([
+            'is_blocked' => $request->boolean('is_blocked'),
+            'maintenance_required' => $request->boolean('maintenance_required'),
+            'update_required' => $request->boolean('update_required'),
+            'note' => $data['note'] ?? null,
+            'updated_at' => now(),
+        ]);
+        return redirect()->route('admin.devices.index')->with('status','Device updated');
+    })->name('admin.devices.update');
 
     // Admin: Settings (General & Maintenance)
     Route::get('/admin/settings', function () use ($ensureAdmin) {

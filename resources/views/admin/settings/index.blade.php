@@ -70,6 +70,7 @@
                 <div class="px-4 py-3 border-b"><div class="font-medium">Admins & Backup</div></div>
                 <div class="p-4 flex flex-wrap gap-3 text-sm">
                   <a href="/admin/users" class="px-3 py-2 rounded border hover:bg-gray-50">Manage Admins</a>
+                  <a href="{{ route('admin.devices.index') }}" class="px-3 py-2 rounded border hover:bg-gray-50">Manage Devices</a>
                   <button type="button" class="px-3 py-2 rounded border hover:bg-gray-50" disabled>Download DB Backup (coming soon)</button>
                 </div>
               </div>
