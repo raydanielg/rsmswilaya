@@ -119,17 +119,9 @@ Route::get('/api/notifications', function () {
     return response()->json($rows);
 })->name('api.notifications');
 
-// Web notifications endpoint (JSON only)
+// Web notifications endpoint (JSON only) - latest notifications
 Route::get('/notifications', function () {
-    $now = now();
     $rows = DB::table('notifications')
-        ->where(function($q) use ($now) {
-            $q->whereNull('starts_at')->orWhere('starts_at','<=',$now);
-        })
-        ->where(function($q) use ($now) {
-            $q->whereNull('ends_at')->orWhere('ends_at','>=',$now);
-        })
-        ->orderByDesc('starts_at')
         ->orderByDesc('created_at')
         ->limit(20)
         ->get(['title','body','starts_at','ends_at','created_at']);
