@@ -31,7 +31,7 @@
           </div>
           <button type="submit" class="w-full inline-flex items-center justify-center px-4 py-2.5 rounded bg-[#0B6B3A] text-white font-medium hover:bg-[#095a31]">Sign in</button>
           <div class="text-center text-xs text-[#6b6a67]">
-            <a href="#" class="hover:underline">I forgot my password</a>
+            <a href="{{ route('forgot') }}" class="hover:underline">I forgot my password</a>
           </div>
         </form>
         <div class="px-6 pb-6">

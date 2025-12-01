@@ -19,8 +19,14 @@
             <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
           </div>
           <span class="inline-flex items-center h-7 px-2 rounded-full bg-primary-50 text-primary-700 text-sm font-semibold">{{ filteredSchools.length }} total</span>
+          <span v-if="selectedIds.length" class="inline-flex items-center h-7 px-2 rounded-full bg-amber-50 text-amber-800 text-xs font-medium">
+            {{ selectedIds.length }} selected
+          </span>
         </div>
         <div class="flex items-center gap-3">
+          <button v-if="selectedIds.length" class="px-3 py-2 rounded-lg bg-red-600 text-white text-sm hover:bg-red-700" @click="openBulkDelete">
+            Delete selected
+          </button>
           <a href="/admin/schools/template" class="px-3 py-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-100 text-sm">Download CSV Template</a>
           <button class="px-3 py-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-100 text-sm" @click="openBulk = true">Bulk Upload</button>
           <button class="px-4 py-2 rounded-lg text-white bg-primary-700 hover:bg-primary-800 focus:ring-4 focus:ring-primary-300 text-sm" @click="openAdd = true">Add School</button>
@@ -33,6 +39,9 @@
         <table class="w-full text-sm text-left text-gray-500">
           <thead class="text-xs text-gray-700 uppercase bg-gray-50 sticky top-0">
             <tr>
+              <th class="px-2 py-2 w-10">
+                <input type="checkbox" :checked="allVisibleSelected" @change="toggleSelectAll" />
+              </th>
               <th class="px-4 py-2">School</th>
               <th class="px-4 py-2">Code</th>
               <th class="px-4 py-2">Level</th>
@@ -43,9 +52,12 @@
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td class="px-4 py-3 text-sm text-gray-500" colspan="6">Loading schools…</td>
+              <td class="px-4 py-3 text-sm text-gray-500" colspan="7">Loading schools…</td>
             </tr>
             <tr v-for="(s, idx) in filteredSchools" :key="s.id" :class="[idx % 2 ? 'bg-gray-50' : 'bg-white', 'hover:bg-gray-100']">
+              <td class="px-2 py-2">
+                <input type="checkbox" :value="s.id" v-model="selectedIds" />
+              </td>
               <td class="px-4 py-2 text-gray-900 font-medium">{{ s.name }}</td>
               <td class="px-4 py-2 text-sm">{{ s.code || '—' }}</td>
               <td class="px-4 py-2 text-sm capitalize">{{ s.level }}</td>
@@ -57,7 +69,7 @@
               </td>
             </tr>
             <tr v-if="!loading && filteredSchools.length === 0">
-              <td class="px-4 py-6 text-sm text-gray-500" colspan="5">
+              <td class="px-4 py-6 text-sm text-gray-500" colspan="7">
                 <div class="flex items-center justify-center gap-2">
                   <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
                   <span>No schools found. Adjust filters or add a new school.</span>
@@ -230,7 +242,14 @@
       <div class="absolute inset-0 bg-black/40" @click="closeDelete"/>
       <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-md w-[95vw] max-w-md border border-gray-200">
         <div class="px-4 py-3 border-b border-[#ecebea] font-semibold text-[#0B6B3A]">Delete School</div>
-        <div class="p-4 text-sm text-gray-700">Are you sure you want to delete <span class="font-semibold">{{ deleteTarget?.name }}</span>? This action cannot be undone.</div>
+        <div class="p-4 text-sm text-gray-700">
+          <span v-if="bulkDeleteIds.length === 0">
+            Are you sure you want to delete <span class="font-semibold">{{ deleteTarget?.name }}</span>? This action cannot be undone.
+          </span>
+          <span v-else>
+            Are you sure you want to delete <span class="font-semibold">{{ bulkDeleteIds.length }}</span> selected school<span v-if="bulkDeleteIds.length !== 1">s</span>? This action cannot be undone.
+          </span>
+        </div>
         <div class="px-4 py-3 border-t border-[#ecebea] flex justify-end gap-3">
           <button class="px-4 py-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-100" @click="closeDelete">Cancel</button>
           <button class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700" :disabled="deleting" @click="confirmDelete">{{ deleting ? 'Deleting…' : 'Delete' }}</button>
@@ -250,6 +269,7 @@ const schools = ref([])
 const filters = ref({ region: '', district: '' })
 const loading = ref(true)
 const search = ref('')
+const selectedIds = ref([])
 
 const openAdd = ref(false)
 const addForm = ref({ region_id: '', district_id: '', name: '', code: '', level: 'secondary' })
@@ -275,6 +295,7 @@ const errorEdit = ref('')
 const openDelete = ref(false)
 const deleteTarget = ref(null)
 const deleting = ref(false)
+const bulkDeleteIds = ref([])
 
 async function fetchRegions(){
   const res = await fetch('/api/admin/regions', { headers: { 'Accept': 'application/json' } })
@@ -303,6 +324,11 @@ const filteredSchools = computed(()=>{
   const q = search.value.trim().toLowerCase()
   if (!q) return schools.value
   return schools.value.filter(s => (s.name || '').toLowerCase().includes(q) || (s.code||'').toLowerCase().includes(q))
+})
+
+const allVisibleSelected = computed(()=>{
+  if (!filteredSchools.value.length) return false
+  return filteredSchools.value.every(s => selectedIds.value.includes(s.id))
 })
 
 async function onRegionChange(){
@@ -430,6 +456,18 @@ onMounted(async()=>{
   bulk.value.district_id = filters.value.district
 })
 
+function toggleSelectAll(){
+  if (allVisibleSelected.value) {
+    // unselect all visible
+    const visibleIds = filteredSchools.value.map(s => s.id)
+    selectedIds.value = selectedIds.value.filter(id => !visibleIds.includes(id))
+  } else {
+    const visibleIds = filteredSchools.value.map(s => s.id)
+    const set = new Set(selectedIds.value.concat(visibleIds))
+    selectedIds.value = Array.from(set)
+  }
+}
+
 function openEditFor(s){
   editForm.value = {
     id: String(s.id),
@@ -462,16 +500,33 @@ async function updateSchool(){
   } catch(e){ errorEdit.value='Failed to update' } finally { submittingEdit.value=false }
 }
 
-function openDeleteFor(s){ deleteTarget.value = s; openDelete.value = true }
-function closeDelete(){ openDelete.value = false; deleteTarget.value = null }
+function openDeleteFor(s){ bulkDeleteIds.value = []; deleteTarget.value = s; openDelete.value = true }
+function openBulkDelete(){
+  if (!selectedIds.value.length) return
+  deleteTarget.value = null
+  bulkDeleteIds.value = [...selectedIds.value]
+  openDelete.value = true
+}
+function closeDelete(){ openDelete.value = false; deleteTarget.value = null; bulkDeleteIds.value = [] }
 async function confirmDelete(){
-  if (!deleteTarget.value) return
   deleting.value = true
+  const csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content')
   try{
-    const csrf = document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-    const res = await fetch(`/api/admin/schools/${deleteTarget.value.id}`, { method:'DELETE', headers: { 'X-CSRF-TOKEN': csrf } })
-    if(!res.ok) throw new Error('delete failed')
-    schools.value = schools.value.filter(x => x.id !== deleteTarget.value.id)
+    if (bulkDeleteIds.value.length) {
+      const ids = [...bulkDeleteIds.value]
+      for (const id of ids) {
+        const res = await fetch(`/api/admin/schools/${id}`, { method:'DELETE', headers: { 'X-CSRF-TOKEN': csrf } })
+        if (res.ok) {
+          schools.value = schools.value.filter(x => x.id !== id)
+        }
+      }
+      selectedIds.value = selectedIds.value.filter(id => !bulkDeleteIds.value.includes(id))
+    } else if (deleteTarget.value) {
+      const res = await fetch(`/api/admin/schools/${deleteTarget.value.id}`, { method:'DELETE', headers: { 'X-CSRF-TOKEN': csrf } })
+      if(!res.ok) throw new Error('delete failed')
+      schools.value = schools.value.filter(x => x.id !== deleteTarget.value.id)
+      selectedIds.value = selectedIds.value.filter(id => id !== deleteTarget.value.id)
+    }
     closeDelete()
   } catch(e){ /* could show toast */ } finally { deleting.value = false }
 }

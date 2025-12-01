@@ -630,17 +630,28 @@ Route::middleware([])->group(function () {
         return back();
     })->name('admin.results.toggle');
 
+    // Delete a single result document
+    Route::post('/admin/results/{id}/delete', function ($id, Request $request) use ($ensureAdmin) {
+        $ensureAdmin();
+        DB::table('result_documents')->where('id',$id)->delete();
+        return back()->with('status', 'Result document deleted');
+    })->name('admin.results.delete');
+
     // Bulk publish/unpublish
     Route::post('/admin/results/bulk/publish', function (Request $request) use ($ensureAdmin) {
         $ensureAdmin();
         $data = $request->validate([
             'ids' => 'array',
             'ids.*' => 'integer',
-            'action' => 'required|in:publish,unpublish',
+            'action' => 'required|in:publish,unpublish,delete',
         ]);
         if (!empty($data['ids'])) {
-            $value = $data['action'] === 'publish';
-            DB::table('result_documents')->whereIn('id',$data['ids'])->update(['published'=>$value,'updated_at'=>now()]);
+            if ($data['action'] === 'delete') {
+                DB::table('result_documents')->whereIn('id',$data['ids'])->delete();
+            } else {
+                $value = $data['action'] === 'publish';
+                DB::table('result_documents')->whereIn('id',$data['ids'])->update(['published'=>$value,'updated_at'=>now()]);
+            }
         }
         return back()->with('status', 'Bulk action completed');
     })->name('admin.results.bulk_publish');
@@ -836,6 +847,28 @@ Route::middleware([])->group(function () {
         ]);
         return redirect()->route('admin.notifications.index')->with('status','Notification published');
     })->name('admin.notifications.store');
+
+    Route::post('/admin/notifications/{id}/delete', function ($id) use ($ensureAdmin) {
+        $ensureAdmin();
+        DB::table('notifications')->where('id', $id)->delete();
+        return redirect()->route('admin.notifications.index')->with('status', 'Notification deleted');
+    })->name('admin.notifications.delete');
+
+    Route::post('/admin/notifications/{id}/repost', function ($id) use ($ensureAdmin) {
+        $ensureAdmin();
+        $row = DB::table('notifications')->where('id', $id)->first();
+        if (!$row) return redirect()->route('admin.notifications.index');
+        $now = now();
+        DB::table('notifications')->insert([
+            'title' => $row->title,
+            'body' => $row->body,
+            'starts_at' => $row->starts_at,
+            'ends_at' => $row->ends_at,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+        return redirect()->route('admin.notifications.index')->with('status', 'Notification reposted');
+    })->name('admin.notifications.repost');
 
     // Admin: Devices management
     Route::get('/admin/devices', function (Request $request) use ($ensureAdmin) {
@@ -1090,7 +1123,7 @@ Route::middleware([])->group(function () {
             ->join('districts','districts.id','=','schools.district_id')
             ->join('regions','regions.id','=','districts.region_id')
             ->where('schools.id',$id)
-            ->select('schools.id','schools.name','schools.code','districts.name as district_name','districts.id as district_id','regions.name as region_name','regions.id as region_id')
+            ->select('schools.id','schools.name','schools.code','schools.level','districts.name as district_name','districts.id as district_id','regions.name as region_name','regions.id as region_id')
             ->first();
         return response()->json($row);
     })->name('api.admin.schools.update');
@@ -2644,7 +2677,27 @@ Route::get('/dashboard', function () {
         'admins' => DB::table('admins')->count(),
     ];
     $recentEvents = DB::table('events')->orderByDesc('start_date')->limit(6)->get();
-    return view('dashboard', compact('kpis','recentEvents'));
+    $latestResults = DB::table('result_documents')
+        ->leftJoin('result_types','result_types.id','=','result_documents.result_type_id')
+        ->leftJoin('regions','regions.id','=','result_documents.region_id')
+        ->leftJoin('districts','districts.id','=','result_documents.district_id')
+        ->leftJoin('schools','schools.id','=','result_documents.school_id')
+        ->select(
+            'result_documents.id',
+            'result_documents.exam',
+            'result_documents.year',
+            'result_documents.created_at',
+            'result_documents.published',
+            'result_types.code as type_code',
+            'result_types.name as type_name',
+            'regions.name as region_name',
+            'districts.name as district_name',
+            'schools.name as school_name'
+        )
+        ->orderByDesc('result_documents.created_at')
+        ->limit(8)
+        ->get();
+    return view('dashboard', compact('kpis','recentEvents','latestResults'));
 })->name('dashboard');
 
 Route::post('/logout', function (Request $request) {

@@ -6,9 +6,10 @@
     <title>RSMS • Forgot Password</title>
     @vite(['resources/css/app.css'])
   </head>
-  <body class="min-h-screen w-full bg-[#F7F7F6]">
-    <div class="min-h-screen flex items-center justify-center px-4">
-      <div class="w-full max-w-md bg-white rounded border border-[#ecebea] shadow-sm p-6">
+  <body class="min-h-screen w-full bg-[#0b6b3a]">
+    <div class="absolute inset-0 opacity-30" style="background-image: url('/assets/images/PXL_20250502_075450907.RAW-01.COVER.jpg'); background-size: cover; background-position: center;"></div>
+    <div class="relative min-h-screen flex items-center justify-center px-4">
+      <div class="w-full max-w-md bg-white/95 backdrop-blur rounded shadow-xl border border-[#ecebea] p-6">
         <h1 class="text-xl font-semibold mb-2">Forgot password</h1>
         <p class="text-sm text-[#6b6a67] mb-4">Enter your admin email to receive a verification code.</p>
         <form method="POST" action="{{ route('forgot.post') }}" class="space-y-4">

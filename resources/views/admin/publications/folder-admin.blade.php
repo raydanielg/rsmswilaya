@@ -73,6 +73,6 @@
       </div>
       <admin-footer></admin-footer>
     </div>
-    <script>window.sidebarOpen = true</script>
+    <script>window.sidebarOpen = false</script>
   </body>
 </html>

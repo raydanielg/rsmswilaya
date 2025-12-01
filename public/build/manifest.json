@@ -4,12 +4,12 @@
     "src": "node_modules/pdfjs-dist/build/pdf.worker.js"
   },
   "resources/css/app.css": {
-    "file": "assets/app-B8uxuZUs.css",
+    "file": "assets/app-Cvyw5rPf.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-BO9SAKec.js",
+    "file": "assets/app-Bv8IQ0GQ.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,

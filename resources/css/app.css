@@ -2,6 +2,9 @@
 @import url("https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.19/index.global.min.css");
 @import url("https://cdn.jsdelivr.net/npm/@fullcalendar/daygrid@6.1.19/index.global.min.css");
 
+/* Global font: Poppins for all frontend pages */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
 @import 'tailwindcss';
 
 /* Tailwind CSS v4 @source directives - these are valid for Tailwind v4 */
@@ -12,7 +15,7 @@
 
 /* Tailwind CSS v4 @theme block - this is valid for Tailwind v4 */
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+    --font-sans: 'Poppins', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
     /* Primary palette for features section */
     --color-primary-50: #eff6ff;

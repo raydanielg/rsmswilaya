@@ -1,13 +1,15 @@
 <template>
-  <div class="max-w-screen-xl mx-auto space-y-8">
-    <div class="flex items-center justify-between gap-3 flex-wrap">
-      <h1 class="text-2xl font-semibold">Regions</h1>
+  <div class="max-w-screen-xl mx-auto space-y-6">
+    <div class="bg-white rounded-2xl border border-[#e3e2df] shadow-sm px-5 md:px-6 pt-4 pb-3 flex items-center justify-between gap-3 flex-wrap">
+      <div>
+        <h1 class="text-xl md:text-2xl font-semibold">Regions</h1>
+        <p class="text-sm text-[#6b6a67] mt-1">Manage regions used to group councils and schools across RSMS.</p>
+      </div>
       <div class="flex items-center gap-2">
-        <button class="px-3 py-2 rounded border border-[#d7d6d4] bg-white hover:bg-[#f7f7f6] text-sm" @click="openBulk = true">Bulk upload locations</button>
-        <button class="px-4 py-2 rounded bg-[#0AA74A] text-white hover:bg-[#089543]" @click="openModal = true">Add Region</button>
+        <button class="px-3 py-2 rounded-full border border-[#d7d6d4] bg-white hover:bg-[#f7f7f6] text-xs md:text-sm" @click="openBulk = true">Bulk upload locations</button>
+        <button class="px-4 py-2 rounded-full bg-[#0AA74A] text-white text-xs md:text-sm hover:bg-[#089543]" @click="openModal = true">Add Region</button>
       </div>
     </div>
-    <div class="border-t border-dashed border-[#d7d6d4]"></div>
 
     <div v-if="loading" class="text-sm text-[#6b6a67]">Loading regions…</div>
     <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -18,8 +20,14 @@
         </div>
         <div class="mt-2 text-xs text-[#6b6a67]">Region</div>
         <div class="absolute inset-x-0 bottom-2 flex items-center justify-end gap-2 px-4 opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition">
-          <a :href="`/admin/regions/${r.id}`" class="text-sm px-3 py-1.5 rounded border hover:bg-[#f7f7f6]">Show</a>
-          <a :href="`/admin/regions/${r.id}/edit`" class="text-sm px-3 py-1.5 rounded bg-[#0B6B3A] text-white hover:bg-[#095a31]">Edit</a>
+          <a :href="`/admin/regions/${r.id}`" class="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-full border border-[#dad9d6] bg-white hover:bg-[#f7f7f6]">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2 2"/></svg>
+            <span>View</span>
+          </a>
+          <button type="button" class="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-full bg-[#0B6B3A] text-white hover:bg-[#095a31]" @click="openEditFor(r)">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16.5 3.5l4 4L8 20H4v-4z"/><path d="M15 5l4 4"/></svg>
+            <span>Edit</span>
+          </button>
         </div>
       </div>
     </div>
@@ -82,6 +90,29 @@
         </form>
       </div>
     </div>
+
+    <!-- Edit Region Modal -->
+    <div v-if="openEdit" class="fixed inset-0 z-50">
+      <div class="absolute inset-0 bg-black/40" @click="closeEdit" />
+      <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-md shadow-lg w-[95vw] max-w-md border border-[#ecebea]">
+        <div class="px-4 py-3 border-b border-[#ecebea] flex items-center justify-between">
+          <div class="font-semibold text-[#0B6B3A]">Edit Region</div>
+          <button class="text-[#6b6a67] hover:text-[#0B6B3A]" @click="closeEdit">✕</button>
+        </div>
+        <form v-if="editRegion" :action="`/admin/regions/${editRegion.id}`" method="POST" class="p-4 space-y-4">
+          <input type="hidden" name="_token" :value="csrfToken" />
+          <div>
+            <label class="block text-sm font-medium mb-1">Region name</label>
+            <input v-model="editForm.name" type="text" name="name" required class="w-full border border-[#e5e4e2] rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0B6B3A]" />
+            <div v-if="editError" class="text-sm text-red-600 mt-1">{{ editError }}</div>
+          </div>
+          <div class="flex justify-end gap-3">
+            <button type="button" class="px-4 py-2 rounded border" @click="closeEdit">Cancel</button>
+            <button type="submit" class="px-4 py-2 rounded bg-[#0B6B3A] text-white hover:bg-[#095a31]">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -94,6 +125,12 @@ const openModal = ref(false)
 const form = ref({ name: '' })
 const error = ref('')
 const submitting = ref(false)
+
+const openEdit = ref(false)
+const editRegion = ref(null)
+const editForm = ref({ name: '' })
+const editError = ref('')
+const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
 
 const openBulk = ref(false)
 const bulkFile = ref(null)
@@ -184,6 +221,20 @@ async function uploadBulk(){
   } finally {
     bulkSubmitting.value = false
   }
+}
+
+function openEditFor(region){
+  editRegion.value = region
+  editForm.value = { name: region.name }
+  editError.value = ''
+  openEdit.value = true
+}
+
+function closeEdit(){
+  openEdit.value = false
+  editRegion.value = null
+  editForm.value = { name: '' }
+  editError.value = ''
 }
 
 onMounted(fetchRegions)
