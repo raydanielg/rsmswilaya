@@ -6,7 +6,7 @@
       </div>
       <div class="flex items-center justify-center">
         <h1 class="text-sm sm:text-base font-semibold tracking-wide text-[#E6FF8A] uppercase text-center">
-          The National Examinations Council of Tanzania
+          Regional Examination Results - Tanzania
         </h1>
       </div>
       <div class="flex items-center justify-end">
