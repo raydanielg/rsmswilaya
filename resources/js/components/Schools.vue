@@ -10,13 +10,53 @@
       <span class="font-medium">{{ districtLabel }}</span>
     </nav>
     <div class="bg-white border rounded p-4 mb-4">
+      <div class="flex flex-col gap-3 mb-3">
+        <div class="flex items-center justify-between gap-3">
+          <div class="font-medium text-sm">All Schools in {{ districtLabel }}</div>
+          <div class="flex items-center gap-2 text-xs">
+            <input
+              v-model.trim="q"
+              type="text"
+              placeholder="Search by name..."
+              class="border rounded px-2 py-1"
+            />
+          </div>
+        </div>
+        <div class="border-t border-gray-200 pt-2">
+          <div class="flex flex-wrap items-center gap-1 text-[11px] uppercase font-semibold tracking-wide">
+            <button
+              type="button"
+              class="px-2.5 py-1 rounded border text-xs"
+              :class="activeLetter === '' ? 'bg-[#0B6B3A] text-white border-[#0B6B3A]' : 'bg-gray-50 text-gray-800 border-gray-200 hover:bg-gray-100'"
+              @click="setActiveLetter('')"
+            >
+              All Schools
+            </button>
+            <button
+              v-for="letter in letters"
+              :key="letter"
+              type="button"
+              class="px-2.5 py-1 rounded border text-xs"
+              :class="activeLetter === letter ? 'bg-[#0B6B3A] text-white border-[#0B6B3A]' : 'bg-gray-50 text-gray-800 border-gray-200 hover:bg-gray-100'"
+              @click="setActiveLetter(letter)"
+            >
+              {{ letter }}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div v-if="loading" class="py-6 text-center text-sm text-gray-500">Loading schools...</div>
-      <div v-else id="schoolsGrid" class="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-3">
+      <div v-else-if="!filteredSchools.length" class="py-6 text-center text-sm text-gray-500">No schools match the current filters.</div>
+      <div v-else id="schoolsGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
         <template v-for="s in filteredSchools" :key="s.id">
           <button
             @click="openSchool(s)"
-            class="school-item text-left block w-full text-sm md:text-base px-4 py-3 rounded-md shadow-sm transition"
-            :class="s.url ? 'bg-green-50 text-green-800 hover:bg-green-100' : 'bg-gray-50 text-gray-700 hover:bg-gray-100'"
+            class="school-item w-full text-xs sm:text-[13px] px-3 py-2 rounded-full border text-center truncate transition-colors"
+            :class="s.url
+              ? 'bg-green-50 border-green-300 text-green-900 hover:bg-green-100'
+              : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'"
+            :title="s.name"
             :data-name="s.name.toLowerCase()"
           >
             {{ s.name }}
@@ -48,8 +88,6 @@
                     <div class="text-gray-700">Document {{ idx+1 }}</div>
                     <div class="flex items-center gap-3">
                       <a :href="viewerUrl(d.url)" target="_blank" class="text-[#0B6B3A] hover:underline">View</a>
-                      <a v-if="!isExternal(d.url)" :href="d.url" :download="filenameFromUrl(d.url)" class="text-[#0B6B3A] hover:underline">Download</a>
-                      <a v-else :href="d.url" target="_blank" rel="noopener" class="text-[#0B6B3A] hover:underline">Download</a>
                     </div>
                   </li>
                 </ul>
@@ -74,10 +112,29 @@ export default {
     districtLabel: { type: String, required: true },
   },
   data(){
-    return { loading: true, q: '', schools: [], showModal: false, modalSchoolId: null, modalSchoolName: '', modalTypes: {}, modalLoading: false, debounceId: null };
+    return {
+      loading: true,
+      q: '',
+      schools: [],
+      showModal: false,
+      modalSchoolId: null,
+      modalSchoolName: '',
+      modalTypes: {},
+      modalLoading: false,
+      debounceId: null,
+      activeLetter: '',
+      letters: ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z'],
+    };
   },
   computed: {
-    filteredSchools(){ return this.schools; },
+    filteredSchools(){
+      let list = this.schools;
+      if (this.activeLetter){
+        const letter = this.activeLetter.toLowerCase();
+        list = list.filter(s => (s.name || '').toLowerCase().startsWith(letter));
+      }
+      return list;
+    },
     totalCount(){ return this.schools.length; },
     publishedCount(){ return this.schools.filter(s => !!s.url).length; }
   },
@@ -91,6 +148,9 @@ export default {
         this.schools = data.schools || [];
       }
       this.loading = false;
+    },
+    setActiveLetter(letter){
+      this.activeLetter = letter || '';
     },
     triggerSearch(){
       clearTimeout(this.debounceId);

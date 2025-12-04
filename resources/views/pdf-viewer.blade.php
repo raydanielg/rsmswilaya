@@ -23,7 +23,6 @@
         </div>
         <div class="flex items-center gap-2">
           <a id="openBtn" href="#" target="_blank" rel="noopener" class="hidden sm:inline-flex text-xs px-3 py-1.5 rounded bg-[#0AA74A] hover:bg-[#089543]">Open</a>
-          <a id="downloadBtn" href="#" download class="inline-flex text-xs px-3 py-1.5 rounded border border-white/20 hover:bg-white/10">Download</a>
           <button id="printBtn" class="inline-flex text-xs px-3 py-1.5 rounded border border-white/20 hover:bg-white/10">Print</button>
         </div>
       </div>
@@ -43,13 +42,12 @@
         const titleEl = document.getElementById('docTitle');
         const metaEl = document.getElementById('docMeta');
         const openBtn = document.getElementById('openBtn');
-        const dlBtn = document.getElementById('downloadBtn');
         const printBtn = document.getElementById('printBtn');
         const frame = document.getElementById('pdfFrame');
         const fname = filenameFromUrl(src);
         titleEl.textContent = fname;
         metaEl.textContent = isExternal(src) ? 'External document' : 'Local document';
-        openBtn.href = src; dlBtn.href = src; dlBtn.setAttribute('download', fname);
+        openBtn.href = src;
         printBtn.addEventListener('click', function(){ try{ frame.contentWindow.focus(); frame.contentWindow.print(); } catch(e){ window.open(src, '_blank'); } });
       })();
     </script>
